@@ -422,10 +422,16 @@ static const u128 GC_ALIGNED16(single_qnan_bit) = 0x00400000;
 static const u128 GC_ALIGNED16(single_exponent) = 0x7f800000;
 static const u128 GC_ALIGNED16(double_qnan_bit) = 0x0008000000000000;
 static const u128 GC_ALIGNED16(double_exponent) = 0x7ff0000000000000;
+static const u128 GC_ALIGNED16(double_fraction) = 0x000fffffffffffff;
+static const u128 GC_ALIGNED16(double_sign_bit) = 0x8000000000000000;
+static const u128 GC_ALIGNED16(double_explicit_top_bit) = 0x0010000000000000;
+static const u128 GC_ALIGNED16(double_top_two_bits) = 0xC000000000000000;
+static const u128 GC_ALIGNED16(double_bottom_bits)  = 0x07ffffffe0000000;
 
 // Since the following two functions are used in non-arithmetic PPC float instructions,
 // they must convert floats bitexact and never flush denormals to zero or turn SNaNs into QNaNs.
 // This means we can't use CVTSS2SD/CVTSD2SS :(
+
 // The x87 FPU doesn't even support flush-to-zero so we can use FLD+FSTP even on denormals.
 // If the number is a NaN, make sure to set the QNaN bit back to its original value.
 
@@ -465,35 +471,71 @@ void EmuCodeBlock::ConvertSingleToDouble(X64Reg dst, X64Reg src, bool src_is_gpr
 	MOVDDUP(dst, R(dst));
 }
 
+// This is the same algorithm used in the interperter (and actual hardware)
+// The documentation states that the converion of a double with an ouside the
+// valid range for a single (or a single denormal) is undefined.
+// But testing on actual hardware shows it always picks bits 0..1 and 5..34
+// unless the exponent is in the range of 874 to 896.
 void EmuCodeBlock::ConvertDoubleToSingle(X64Reg dst, X64Reg src)
 {
-	MOVSD(M(&temp64), src);
 	MOVSD(XMM1, R(src));
-	FLD(64, M(&temp64));
-	CCFlags cond;
-	if (cpu_info.bSSE4_1) {
-		PTEST(XMM1, M((void *)&double_exponent));
-		cond = CC_NC;
-	} else {
-		FNSTSW_AX();
-		TEST(16, R(AX), Imm16(x87_InvalidOperation));
-		cond = CC_Z;
-	}
-	FSTP(32, M(&temp32));
-	MOVSS(XMM0, M(&temp32));
-	FixupBranch dont_reset_qnan_bit = J_CC(cond);
 
-	PANDN(XMM1, M((void *)&double_qnan_bit));
-	PSRLQ(XMM1, 29);
-	if (cpu_info.bAVX) {
-		VPANDN(XMM0, XMM1, R(XMM0));
-	} else {
-		PANDN(XMM1, R(XMM0));
-		MOVSS(XMM0, R(XMM1));
-	}
+	// Grab Exponent
+	PAND(XMM1, M((void *)&double_exponent));
+	PSRLQ(XMM1, 52);
+	MOVD_xmm(R(EAX), XMM1);
 
-	SetJumpTarget(dont_reset_qnan_bit);
-	MOVDDUP(dst, R(XMM0));
+
+	// Check if the double is in the range of valid single subnormal
+	CMP(16, R(EAX), Imm16(896));
+	FixupBranch NoDenormalize = J_CC(CC_G);
+	CMP(16, R(EAX), Imm16(874));
+	FixupBranch NoDenormalize2 = J_CC(CC_L);
+
+	// Denormalise
+
+	// shift = (905 - Exponent) plus the 21 bit double to single shift
+	MOV(16, R(EAX), Imm16(905 + 21));
+	MOVD_xmm(XMM0, R(EAX));
+	PSUBQ(XMM0, R(XMM1));
+
+	// xmm1 = fraction | 0x0010000000000000
+	MOVSD(XMM1, R(src));
+	PAND(XMM1, M((void *)&double_fraction));
+	POR(XMM1, M((void *)&double_explicit_top_bit));
+
+	// fraction >> shift
+	PSRLQ(XMM1, R(XMM0));
+
+	// OR the sign bit in.
+	MOVSD(XMM0, R(src));
+	PAND(XMM0, M((void *)&double_sign_bit));
+	PSRLQ(XMM0, 32);
+	POR(XMM1, R(XMM0));
+
+	FixupBranch end = J(false); // Goto end
+
+	SetJumpTarget(NoDenormalize);
+	SetJumpTarget(NoDenormalize2);
+
+	// Don't Denormalize
+
+	// We want bits 0, 1
+	MOVSD(XMM1, R(src));
+	PAND(XMM1, M((void *)&double_top_two_bits));
+	PSRLQ(XMM1, 32);
+
+	// And 5 through to 34
+	MOVSD(XMM0, R(src));
+	PAND(XMM0, M((void *)&double_bottom_bits));
+	PSRLQ(XMM0, 29);
+
+	// OR them togther
+	POR(XMM1, R(XMM0));
+
+	// End
+	SetJumpTarget(end);
+	MOVDDUP(dst, R(XMM1));
 }
 
 void EmuCodeBlock::JitClearCA()
