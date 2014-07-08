@@ -34,46 +34,6 @@
 u8* g_pVideoData = nullptr;
 bool g_bRecordFifoData = false;
 
-#if _M_SSE >= 0x301
-DataReadU32xNfunc DataReadU32xFuncs_SSSE3[16] = {
-	DataReadU32xN_SSSE3<1>,
-	DataReadU32xN_SSSE3<2>,
-	DataReadU32xN_SSSE3<3>,
-	DataReadU32xN_SSSE3<4>,
-	DataReadU32xN_SSSE3<5>,
-	DataReadU32xN_SSSE3<6>,
-	DataReadU32xN_SSSE3<7>,
-	DataReadU32xN_SSSE3<8>,
-	DataReadU32xN_SSSE3<9>,
-	DataReadU32xN_SSSE3<10>,
-	DataReadU32xN_SSSE3<11>,
-	DataReadU32xN_SSSE3<12>,
-	DataReadU32xN_SSSE3<13>,
-	DataReadU32xN_SSSE3<14>,
-	DataReadU32xN_SSSE3<15>,
-	DataReadU32xN_SSSE3<16>
-};
-#endif
-
-DataReadU32xNfunc DataReadU32xFuncs[16] = {
-	DataReadU32xN<1>,
-	DataReadU32xN<2>,
-	DataReadU32xN<3>,
-	DataReadU32xN<4>,
-	DataReadU32xN<5>,
-	DataReadU32xN<6>,
-	DataReadU32xN<7>,
-	DataReadU32xN<8>,
-	DataReadU32xN<9>,
-	DataReadU32xN<10>,
-	DataReadU32xN<11>,
-	DataReadU32xN<12>,
-	DataReadU32xN<13>,
-	DataReadU32xN<14>,
-	DataReadU32xN<15>,
-	DataReadU32xN<16>
-};
-
 extern u8* GetVideoBufferStartPtr();
 extern u8* GetVideoBufferEndPtr();
 
@@ -158,10 +118,7 @@ static u32 Decode(bool skipped_frame)
 			cycles = 18 + 6 * transfer_size;
 
 			u32 xf_address = sub_cmd & 0xFFFF;
-			// TODO: investigate if this intermediate buffer makes sense
-			GC_ALIGNED128(u32 data_buffer[16]);
-			DataReadU32xFuncs[transfer_size-1](data_buffer);
-			LoadXFReg(transfer_size, xf_address, data_buffer);
+			LoadXFReg(transfer_size, xf_address);
 
 			INCSTAT(stats.thisFrame.numXFLoads);
 		}
@@ -301,14 +258,6 @@ static u32 Decode(bool skipped_frame)
 void OpcodeDecoder_Init()
 {
 	g_pVideoData = GetVideoBufferStartPtr();
-
-#if _M_SSE >= 0x301
-	if (cpu_info.bSSSE3)
-	{
-		for (int i = 0; i < 16; ++i)
-			DataReadU32xFuncs[i] = DataReadU32xFuncs_SSSE3[i];
-	}
-#endif
 }
 
 void OpcodeDecoder_Shutdown()
