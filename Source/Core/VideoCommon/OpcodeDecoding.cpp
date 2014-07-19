@@ -89,7 +89,7 @@ static u32 InterpretDisplayList(u32 address, u32 size, bool skipped_frame)
 		// temporarily swap dl and non-dl (small "hack" for the stats)
 		Statistics::SwapDL();
 
-		cycles = OpcodeDecoder_Run(skipped_frame);
+		cycles = OpcodeDecoder_Run(start_address + size, skipped_frame);
 		INCSTAT(stats.thisFrame.numDListsCalled);
 
 		// un-swap
@@ -102,11 +102,11 @@ static u32 InterpretDisplayList(u32 address, u32 size, bool skipped_frame)
 	return cycles;
 }
 
-static u32 Decode(bool skipped_frame)
+static u32 Decode(u8* end, bool skipped_frame)
 {
 	u8* opcode_start = g_pVideoData;
 
-	u32 buffer_size = (u32)(GetVideoBufferEndPtr() - opcode_start);
+	u32 buffer_size = (u32)(end - opcode_start);
 	if (buffer_size == 0)
 		return 0;
 
@@ -305,14 +305,14 @@ void OpcodeDecoder_Shutdown()
 {
 }
 
-u32 OpcodeDecoder_Run(bool skipped_frame)
+u32 OpcodeDecoder_Run(u8* end, bool skipped_frame)
 {
 	u32 total_cycles = 0;
 	u32 cycles;
 
 	do
 	{
-		cycles = Decode(skipped_frame);
+		cycles = Decode(end, skipped_frame);
 		total_cycles += cycles;
 	} while (cycles);
 
