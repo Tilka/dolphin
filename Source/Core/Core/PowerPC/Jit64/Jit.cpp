@@ -833,12 +833,15 @@ const u8* Jit64::DoJit(u32 em_address, PPCAnalyst::CodeBuffer *code_buf, JitBloc
 
 		WriteExceptionExit();
 	}
-
-	if (code_block.m_broken)
+	else if (code_block.m_broken)
 	{
 		gpr.Flush();
 		fpr.Flush();
 		WriteExit(nextPC);
+	}
+	else if (code_block.m_stop)
+	{
+		JMP((u8*)&CCPU::Stop, true);
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - normalEntry);

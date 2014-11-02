@@ -611,6 +611,7 @@ u32 PPCAnalyzer::Analyze(u32 address, CodeBlock *block, CodeBuffer *buffer, u32 
 
 	// Reset our block state
 	block->m_broken = false;
+	block->m_stop = false;
 	block->m_memory_exception = false;
 	block->m_num_instructions = 0;
 
@@ -642,8 +643,20 @@ u32 PPCAnalyzer::Analyze(u32 address, CodeBlock *block, CodeBuffer *buffer, u32 
 	{
 		UGeckoInstruction inst = JitInterface::ReadOpcodeJIT(address);
 
-		if (inst.hex != 0)
+		if (inst.hex == 0)
 		{
+			if (address == 0x80001800)
+			{
+				block->m_stop = true;
+			}
+			else
+			{
+				// ISI exception or other critical memory exception occured (game over)
+				ERROR_LOG(DYNA_REC, "Instruction at 0x%x is 0!", address);
+			}
+			break;
+		}
+
 			num_inst++;
 			memset(&code[i], 0, sizeof(CodeOp));
 			GekkoOPInfo *opinfo = GetOpInfo(inst);
@@ -760,13 +773,6 @@ u32 PPCAnalyzer::Analyze(u32 address, CodeBlock *block, CodeBuffer *buffer, u32 
 				merged_addresses[size_of_merged_addresses++] = address;
 			}
 #endif
-		}
-		else
-		{
-			// ISI exception or other critical memory exception occured (game over)
-			ERROR_LOG(DYNA_REC, "Instruction hex was 0!");
-			break;
-		}
 	}
 
 	block->m_num_instructions = num_inst;

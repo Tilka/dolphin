@@ -147,6 +147,8 @@ struct CodeBlock
 
 	// Did we have a memory_exception?
 	bool m_memory_exception;
+
+	bool m_stop;
 };
 
 class PPCAnalyzer
