@@ -41,7 +41,7 @@ void PulseAudio::Update()
 // Called on audio thread.
 void PulseAudio::SoundLoop()
 {
-	Common::SetCurrentThreadName("Audio thread - pulse");
+	Common::SetCurrentThreadName("Audio: Pulse");
 
 	if (PulseInit())
 	{

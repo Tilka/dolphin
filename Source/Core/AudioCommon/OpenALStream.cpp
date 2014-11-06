@@ -126,7 +126,7 @@ void OpenALStream::Clear(bool mute)
 
 void OpenALStream::SoundLoop()
 {
-	Common::SetCurrentThreadName("Audio thread - openal");
+	Common::SetCurrentThreadName("Audio: OpenAL");
 
 	bool surround_capable = SConfig::GetInstance().m_LocalCoreStartupParameter.bDPL2Decoder;
 #if defined(__APPLE__)

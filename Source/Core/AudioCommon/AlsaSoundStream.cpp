@@ -41,11 +41,12 @@ void AlsaSound::Update()
 // Called on audio thread.
 void AlsaSound::SoundLoop()
 {
+	Common::SetCurrentThreadName("Audio: ALSA");
+
 	if (!AlsaInit()) {
 		thread_data = 2;
 		return;
 	}
-	Common::SetCurrentThreadName("Audio thread - alsa");
 	while (!thread_data)
 	{
 		m_mixer->Mix(reinterpret_cast<short *>(mix_buffer), frames_to_deliver);

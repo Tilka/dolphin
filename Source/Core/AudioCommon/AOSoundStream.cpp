@@ -11,7 +11,7 @@
 
 void AOSound::SoundLoop()
 {
-	Common::SetCurrentThreadName("Audio thread - ao");
+	Common::SetCurrentThreadName("Audio: libao");
 
 	uint_32 numBytesToRender = 256;
 	ao_initialize();
