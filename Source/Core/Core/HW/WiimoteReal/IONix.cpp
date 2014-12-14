@@ -9,12 +9,188 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <bluetooth/l2cap.h>
+#include <libusb.h>
 
 #include "Common/Common.h"
 #include "Core/HW/WiimoteReal/WiimoteReal.h"
 
 namespace WiimoteReal
 {
+
+class WiimoteLibusb final : public Wiimote
+{
+public:
+	WiimoteLibusb(libusb_device* device, u8 interface, u8 endpoint_in);
+	~WiimoteLibusb() override;
+
+protected:
+	bool ConnectInternal() override;
+	void DisconnectInternal() override;
+	bool IsConnected() const override;
+	void IOWakeup() override;
+	int IORead(u8* buf) override;
+	int IOWrite(u8 const* buf, size_t len) override;
+
+private:
+	libusb_device* m_device;
+	libusb_device_handle* m_handle = nullptr;
+	u8 m_interface;
+	u8 m_endpoint_in;
+};
+
+WiimoteLibusb::WiimoteLibusb(libusb_device* device, u8 interface, u8 endpoint_in)
+	: m_interface(interface)
+	, m_endpoint_in(endpoint_in)
+{
+	m_device = libusb_ref_device(device);
+}
+
+WiimoteLibusb::~WiimoteLibusb()
+{
+	Shutdown();
+	libusb_unref_device(m_device);
+	m_device = nullptr;
+}
+
+bool WiimoteLibusb::ConnectInternal()
+{
+	libusb_open(m_device, &m_handle);
+	if (!m_handle)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to open device");
+		return false;
+	}
+
+	int result = libusb_detach_kernel_driver(m_handle, m_interface);
+	if (result < 0 && result != LIBUSB_ERROR_NOT_FOUND)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to detach kernel driver (%s)", libusb_error_name(result));
+		return false;
+	}
+
+	if (libusb_claim_interface(m_handle, m_interface) < 0)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to claim interface");
+		return false;
+	}
+
+	unsigned char string[64];
+	if (libusb_get_string_descriptor_ascii(m_handle, 2, string, sizeof(string)) > 0)
+		INFO_LOG(WIIMOTE, "Got string descriptor \"%s\"", string);
+
+	return true;
+}
+
+void WiimoteLibusb::DisconnectInternal()
+{
+	if (m_handle)
+	{
+		libusb_release_interface(m_handle, 0);
+		libusb_close(m_handle);
+		m_handle = nullptr;
+	}
+}
+
+bool WiimoteLibusb::IsConnected() const
+{
+	return !!m_handle;
+}
+
+void WiimoteLibusb::IOWakeup()
+{
+	ERROR_LOG(WIIMOTE, "TODO: WiimoteLibusb::IOWakeup(interface=%02x)", m_interface);
+}
+
+int WiimoteLibusb::IORead(u8* buf)
+{
+	int bytes_read = 0;
+	int result = libusb_interrupt_transfer(m_handle, m_endpoint_in, buf + 1, MAX_PAYLOAD, &bytes_read, WIIMOTE_DEFAULT_TIMEOUT);
+	if (result < 0 && result != LIBUSB_ERROR_TIMEOUT)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to read (%s)", libusb_error_name(result));
+		return -1;
+	}
+	buf[0] = WM_SET_REPORT | WM_BT_INPUT;
+	return bytes_read + 1;
+}
+
+int WiimoteLibusb::IOWrite(const u8* buf, size_t len)
+{
+	_assert_(buf[0] == (WM_SET_REPORT | WM_BT_OUTPUT));
+
+	u8 request_type = LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE;
+	u8 bRequest = LIBUSB_REQUEST_SET_CONFIGURATION;
+	u16 wValue = (WM_BT_OUTPUT << 8) | buf[1];
+	u16 wIndex = 0;
+	u8* data = const_cast<u8*>(buf + 1);
+	size_t wLength = len - 1;
+
+	int result = libusb_control_transfer(m_handle, request_type, bRequest, wValue, wIndex, data, wLength, WIIMOTE_DEFAULT_TIMEOUT);
+
+	if (result < 0)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to write (%s)", libusb_error_name(result));
+		return -1;
+	}
+	if ((size_t)result < wLength)
+		ERROR_LOG(WIIMOTE, "Failed to complete write");
+	return result + 1;
+}
+
+void FindLibusbWiimotes(std::vector<Wiimote*>* found_wiimotes)
+{
+	libusb_context* context;
+	libusb_init(&context);
+
+	libusb_device** devices;
+	if (libusb_get_device_list(nullptr, &devices) < 0)
+	{
+		ERROR_LOG(WIIMOTE, "Failed to get device list");
+		return;
+	}
+	int i = 0;
+	libusb_device* device;
+	while ((device = devices[i++]))
+	{
+		libusb_device_descriptor device_descriptor;
+		if (libusb_get_device_descriptor(device, &device_descriptor) < 0)
+		{
+			ERROR_LOG(WIIMOTE, "Failed to get device descriptor");
+			continue;
+		}
+		if (device_descriptor.idVendor  == 0x057e &&
+		    device_descriptor.idProduct == 0x0306)
+		{
+			libusb_config_descriptor* config_descriptor;
+			if (libusb_get_active_config_descriptor(device, &config_descriptor) < 0)
+			{
+				ERROR_LOG(WIIMOTE, "Failed to get config descriptor");
+				continue;
+			}
+			for (u8 interface_index = 0; interface_index < config_descriptor->bNumInterfaces; interface_index++)
+			{
+				const libusb_interface* interface = &config_descriptor->interface[interface_index];
+				_assert_(interface->num_altsetting == 1);
+				const libusb_interface_descriptor* interface_descriptor = &interface->altsetting[0];
+				_assert_(interface_descriptor->bNumEndpoints == 1);
+
+				u8 interface_number = interface_descriptor->bInterfaceNumber;
+				u8 endpoint_in = interface_descriptor->endpoint[0].bEndpointAddress;
+				_assert_(endpoint_in & LIBUSB_ENDPOINT_IN);
+
+				NOTICE_LOG(WIIMOTE, "Found USB wiimote at device=%04x:%04x interface=%02x endpoint=%02x",
+				           device_descriptor.idVendor, device_descriptor.idProduct, interface_number, endpoint_in);
+
+				Wiimote* wiimote = new WiimoteLibusb(device, interface_number, endpoint_in);
+				found_wiimotes->push_back(wiimote);
+			}
+			libusb_free_config_descriptor(config_descriptor);
+		}
+	}
+	libusb_free_device_list(devices, 1);
+
+	libusb_exit(context);
+}
 
 class WiimoteLinux final : public Wiimote
 {
@@ -75,6 +251,8 @@ void WiimoteScanner::Update()
 
 void WiimoteScanner::FindWiimotes(std::vector<Wiimote*> & found_wiimotes, Wiimote* & found_board)
 {
+	FindLibusbWiimotes(&found_wiimotes);
+
 	// supposedly 1.28 seconds
 	int const wait_len = 1;
 
