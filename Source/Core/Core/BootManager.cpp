@@ -47,8 +47,8 @@ namespace BootManager
 // Apply fire liberally
 struct ConfigCache
 {
-	bool valid, bCPUThread, bSkipIdle, bSyncGPUOnSkipIdleHack, bFPRF, bAccurateNaNs, bMMU, bDCBZOFF, m_EnableJIT, bDSPThread,
-	     bSyncGPU, bFastDiscSpeed, bDSPHLE, bHLE_BS2, bProgressive;
+	bool valid, bCPUThread, bSkipIdle, bSyncGPUOnSkipIdleHack, bFPRF, bAccurateNaNs, bMMU, bICache,
+	     bDCBZOFF, m_EnableJIT, bDSPThread, bSyncGPU, bFastDiscSpeed, bDSPHLE, bHLE_BS2, bProgressive;
 	int iCPUCore, Volume;
 	int iWiimoteSource[MAX_BBMOTES];
 	SIDevices Pads[MAX_SI_CHANNELS];
@@ -108,6 +108,7 @@ bool BootCore(const std::string& _rFilename)
 		config_cache.bFPRF = StartUp.bFPRF;
 		config_cache.bAccurateNaNs = StartUp.bAccurateNaNs;
 		config_cache.bMMU = StartUp.bMMU;
+		config_cache.bICache = StartUp.bICache;
 		config_cache.bDCBZOFF = StartUp.bDCBZOFF;
 		config_cache.bSyncGPU = StartUp.bSyncGPU;
 		config_cache.bFastDiscSpeed = StartUp.bFastDiscSpeed;
@@ -149,6 +150,7 @@ bool BootCore(const std::string& _rFilename)
 		core_section->Get("FPRF",             &StartUp.bFPRF, StartUp.bFPRF);
 		core_section->Get("AccurateNaNs",     &StartUp.bAccurateNaNs, StartUp.bAccurateNaNs);
 		core_section->Get("MMU",              &StartUp.bMMU, StartUp.bMMU);
+		core_section->Get("ICache",           &StartUp.bICache, StartUp.bICache);
 		core_section->Get("DCBZ",             &StartUp.bDCBZOFF, StartUp.bDCBZOFF);
 		core_section->Get("SyncGPU",          &StartUp.bSyncGPU, StartUp.bSyncGPU);
 		core_section->Get("FastDiscSpeed",    &StartUp.bFastDiscSpeed, StartUp.bFastDiscSpeed);
@@ -277,6 +279,7 @@ void Stop()
 		StartUp.bFPRF = config_cache.bFPRF;
 		StartUp.bAccurateNaNs = config_cache.bAccurateNaNs;
 		StartUp.bMMU = config_cache.bMMU;
+		StartUp.bICache = config_cache.bICache;
 		StartUp.bDCBZOFF = config_cache.bDCBZOFF;
 		StartUp.bSyncGPU = config_cache.bSyncGPU;
 		StartUp.bFastDiscSpeed = config_cache.bFastDiscSpeed;

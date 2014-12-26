@@ -7,6 +7,7 @@
 
 #include "Core/PowerPC/Jit64/Jit.h"
 #include "Core/PowerPC/Jit64/JitAsm.h"
+#include "Core/PowerPC/JitInterface.h"
 
 using namespace Gen;
 
@@ -16,6 +17,20 @@ static void* s_saved_rsp;
 // PLAN: no more block numbers - crazy opcodes just contain offset within
 // dynarec buffer
 // At this offset - 4, there is an int specifying the block number.
+
+static bool CheckCache(JitBlock *b)
+{
+	u32 address = b->originalAddress;
+	u8* memaddress = Memory::physical_base + address;
+	int size = b->originalSize;
+	u64 crc = crccode((u32*)memaddress, size);
+	if (crc != b->crc)
+	{
+		JitInterface::InvalidateICache(address, size*4, false);
+		return false;
+	}
+	return true;
+}
 
 void Jit64AsmRoutineManager::Generate()
 {
@@ -168,6 +183,23 @@ void Jit64AsmRoutineManager::Generate()
 
 			TEST(32, R(RSCRATCH), R(RSCRATCH));
 			FixupBranch notfound = J_CC(CC_L);
+
+			FixupBranch icachefail;
+			if (SConfig::GetInstance().m_LocalCoreStartupParameter.bICache)
+			{
+				u64 blockPointers = (u64)jit->GetBlockCache()->GetBlocks();
+				MOV(32, R(R14), R(RSCRATCH));
+				IMUL(32, ABI_PARAM1, R(RSCRATCH), Imm32(sizeof(JitBlock)));
+				MOV(64, R(RSCRATCH), Imm64(blockPointers));
+				ADD(64, R(ABI_PARAM1), R(RSCRATCH));
+				ABI_PushRegistersAndAdjustStack({}, 0);
+				ABI_CallFunctionR((void *)&CheckCache, ABI_PARAM1);
+				ABI_PopRegistersAndAdjustStack({}, 0);
+				TEST(8, R(ABI_RETURN), R(ABI_RETURN));
+				icachefail = J_CC(CC_Z);
+				MOV(32, R(RSCRATCH), R(R14));
+			}
+
 			//grab from list and jump to it
 			const u8** codePointers = jit->GetBlockCache()->GetCodePointers();
 			if (FitsInS32(PPCSTATE_OFS(codePointers)))
@@ -181,6 +213,8 @@ void Jit64AsmRoutineManager::Generate()
 			}
 
 			SetJumpTarget(notfound);
+			if (SConfig::GetInstance().m_LocalCoreStartupParameter.bICache)
+				SetJumpTarget(icachefail);
 
 			//Ok, no block, let's jit
 			ABI_PushRegistersAndAdjustStack({}, 0);

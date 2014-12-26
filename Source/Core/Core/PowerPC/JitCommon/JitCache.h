@@ -35,6 +35,7 @@ struct JitBlock
 	u32 originalAddress;
 	u32 codeSize;
 	u32 originalSize;
+	u64 crc;
 	int runCount;  // for profiling.
 
 	bool invalid;
@@ -144,6 +145,7 @@ public:
 
 	// Code Cache
 	JitBlock *GetBlock(int block_num);
+	JitBlock *GetBlocks();
 	int GetNumBlocks() const;
 	const u8 **GetCodePointers();
 	std::array<u8, JIT_ICACHE_SIZE>   iCache;

@@ -76,7 +76,7 @@ private:
 	PHackData m_PHack_Data;
 
 	// Core
-	wxCheckBox *CPUThread, *SkipIdle, *MMU, *DCBZOFF, *FPRF;
+	wxCheckBox *CPUThread, *SkipIdle, *MMU, *ICache, *DCBZOFF, *FPRF;
 	wxCheckBox *SyncGPU, *FastDiscSpeed, *DSPHLE;
 
 	wxArrayString arrayStringFor_GPUDeterminism;
@@ -137,6 +137,7 @@ private:
 		ID_USEDUALCORE,
 		ID_IDLESKIP,
 		ID_MMU,
+		ID_ICACHE,
 		ID_DCBZOFF,
 		ID_FPRF,
 		ID_SYNCGPU,

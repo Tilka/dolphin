@@ -183,6 +183,7 @@ struct SCoreStartupParameter
 	bool bRunCompareClient;
 
 	bool bMMU;
+	bool bICache;
 	bool bDCBZOFF;
 	int iBBDumpPort;
 	bool bFastDiscSpeed;

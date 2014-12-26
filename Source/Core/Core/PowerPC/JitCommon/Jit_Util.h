@@ -45,6 +45,34 @@ static const int FARCODE_SIZE_MMU = 1024 * 1024 * 48;
 // same for the trampoline code cache, because fastmem results in far more backpatches in MMU mode
 static const int TRAMPOLINE_CODE_SIZE = 1024 * 1024 * 8;
 static const int TRAMPOLINE_CODE_SIZE_MMU = 1024 * 1024 * 32;
+extern u16 blocklens[0x8000000];
+extern u8 blockdata[0x20000000];
+
+#pragma GCC push_options
+#pragma GCC target("sse4.2")
+static inline u64 crccode(u32* src, int insts)
+{
+	u64 res = 0;
+	if (insts >= 4)
+	{
+		u64 val[2] = { *(u64*)&src[0], *(u64*)&src[2] };
+		src += 4;
+		insts -= 4;
+		while (insts >= 4)
+		{
+			val[0] = _mm_crc32_u64(val[0], *(u64*)&src[0]);
+			val[1] = _mm_crc32_u64(val[1], *(u64*)&src[2]);
+			src += 4;
+			insts -= 4;
+		}
+		res = _mm_crc32_u64(val[0], val[1]);
+	}
+
+	for (int j = 0; j < insts; j++)
+		res = _mm_crc32_u64(res, src[j]);
+	return res;
+}
+#pragma GCC pop_options
 
 // Like XCodeBlock but has some utilities for memory access.
 class EmuCodeBlock : public Gen::X64CodeBlock

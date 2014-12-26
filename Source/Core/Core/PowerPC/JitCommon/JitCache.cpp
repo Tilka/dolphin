@@ -85,6 +85,11 @@ using namespace Gen;
 		Init();
 	}
 
+	JitBlock *JitBaseBlockCache::GetBlocks()
+	{
+		return blocks.data();
+	}
+
 	JitBlock *JitBaseBlockCache::GetBlock(int no)
 	{
 		return &blocks[no];
@@ -126,11 +131,12 @@ using namespace Gen;
 
 		// Convert the logical address to a physical address for the block map
 		u32 pAddr = b.originalAddress & 0x1FFFFFFF;
+		u32 pAddrEnd = pAddr + (b.originalSize ? b.originalSize - 1 : 0) * 4;
 
-		for (u32 block = pAddr / 32; block <= (pAddr + (b.originalSize - 1) * 4) / 32; ++block)
+		for (u32 block = pAddr / 32; block <= pAddrEnd / 32; ++block)
 			valid_block.Set(block);
 
-		block_map[std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr)] = block_num;
+		block_map[std::make_pair(pAddrEnd, pAddr)] = block_num;
 
 		if (block_link)
 		{

@@ -634,6 +634,11 @@ const u8* Jit64::DoJit(u32 em_address, PPCAnalyst::CodeBuffer *code_buf, JitBloc
 			js.assumeNoPairedQuantize = true;
 		}
 	}
+	js.compilerPC = nextPC;
+
+	// Hash data for icache emulation
+	if (SConfig::GetInstance().m_LocalCoreStartupParameter.bICache)
+		b->crc = crccode((u32*)Memory::GetPointer(em_address), code_block.m_num_instructions);
 
 	// Translate instructions
 	for (u32 i = 0; i < code_block.m_num_instructions; i++)
@@ -889,7 +894,8 @@ BitSet32 Jit64::CallerSavedRegistersInUse()
 void Jit64::EnableBlockLink()
 {
 	jo.enableBlocklink = true;
-	if (SConfig::GetInstance().m_LocalCoreStartupParameter.bJITNoBlockLinking)
+	if (SConfig::GetInstance().m_LocalCoreStartupParameter.bJITNoBlockLinking ||
+		SConfig::GetInstance().m_LocalCoreStartupParameter.bICache)
 		jo.enableBlocklink = false;
 }
 

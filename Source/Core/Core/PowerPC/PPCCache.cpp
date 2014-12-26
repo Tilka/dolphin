@@ -153,5 +153,4 @@ namespace PowerPC
 		u32 res = Common::swap32(data[set][t][(addr >> 2) & 7]);
 		return res;
 	}
-
 }

@@ -460,6 +460,7 @@ void SConfig::LoadCoreSettings(IniFile& ini)
 	core->Get("RunCompareServer",          &m_LocalCoreStartupParameter.bRunCompareServer, false);
 	core->Get("RunCompareClient",          &m_LocalCoreStartupParameter.bRunCompareClient, false);
 	core->Get("MMU",                       &m_LocalCoreStartupParameter.bMMU,              false);
+	core->Get("ICache",                    &m_LocalCoreStartupParameter.bICache,           false);
 	core->Get("BBDumpPort",                &m_LocalCoreStartupParameter.iBBDumpPort,       -1);
 	core->Get("SyncGPU",                   &m_LocalCoreStartupParameter.bSyncGPU,          false);
 	core->Get("SyncGpuMaxDistance",        &m_LocalCoreStartupParameter.iSyncGpuMaxDistance,  200000);
