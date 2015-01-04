@@ -29,9 +29,7 @@
 #include "Core/HW/GCKeyboard.h"
 #include "Core/HW/GCPad.h"
 #include "Core/HW/SI.h"
-#if defined(__LIBUSB__) || defined (_WIN32)
 #include "Core/HW/SI_GCAdapter.h"
-#endif
 #include "Core/HW/Wiimote.h"
 #include "Core/HW/WiimoteReal/WiimoteReal.h"
 #include "DolphinWX/ControllerConfigDiag.h"
@@ -157,7 +155,6 @@ wxStaticBoxSizer* ControllerConfigDiag::CreateGamecubeSizer()
 	gamecube_adapter_group->Add(gamecube_adapter_sizer, 0, wxEXPAND);
 	gamecube_static_sizer->Add(gamecube_adapter_group, 0, wxEXPAND);
 
-#if defined(__LIBUSB__) || defined (_WIN32)
 	if (!SI_GCAdapter::IsDetected())
 	{
 		if (!SI_GCAdapter::IsDriverDetected())
@@ -175,7 +172,6 @@ wxStaticBoxSizer* ControllerConfigDiag::CreateGamecubeSizer()
 			gamecube_adapter->Disable();
 		}
 	}
-#endif
 
 	return gamecube_static_sizer;
 }
