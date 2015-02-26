@@ -202,9 +202,8 @@ void* PopFifoAuxBuffer(size_t size)
 }
 
 // Description: RunGpuLoop() sends data through this function.
-static void ReadDataFromFifo(u32 readPtr)
+static void ReadDataFromFifo(u32 readPtr, size_t len)
 {
-	size_t len = 32;
 	if (len > (size_t)(s_video_buffer + FIFO_SIZE - s_video_buffer_write_ptr))
 	{
 		size_t existing_len = s_video_buffer_write_ptr - s_video_buffer_read_ptr;
@@ -315,15 +314,19 @@ void RunGpuLoop()
 				if (!SConfig::GetInstance().m_LocalCoreStartupParameter.bSyncGPU || Common::AtomicLoad(CommandProcessor::VITicks) > CommandProcessor::m_cpClockOrigin)
 				{
 					u32 readPtr = fifo.CPReadPointer;
-					ReadDataFromFifo(readPtr);
+					// FIXME: overflow
+					u32 end = fifo.CPEnd + 32;
+					u32 length = fifo.CPReadWriteDistance;
+					u32 breakpoint = fifo.CPBreakpoint;
+					length = std::min(length, (fifo.bFF_BPEnable && breakpoint > readPtr ? breakpoint : end) - readPtr);
+					ReadDataFromFifo(readPtr, length);
 
-					if (readPtr == fifo.CPEnd)
+					readPtr += length;
+					if (readPtr == end)
 						readPtr = fifo.CPBase;
-					else
-						readPtr += 32;
 
-					_assert_msg_(COMMANDPROCESSOR, (s32)fifo.CPReadWriteDistance - 32 >= 0 ,
-						"Negative fifo.CPReadWriteDistance = %i in FIFO Loop !\nThat can produce instability in the game. Please report it.", fifo.CPReadWriteDistance - 32);
+					_assert_msg_(COMMANDPROCESSOR, (s32)fifo.CPReadWriteDistance - (s32)length >= 0,
+						"Negative fifo.CPReadWriteDistance = %i in FIFO Loop !\nThat can produce instability in the game. Please report it.", fifo.CPReadWriteDistance - length);
 
 
 					u8* write_ptr = s_video_buffer_write_ptr;
@@ -334,9 +337,9 @@ void RunGpuLoop()
 						Common::AtomicAdd(CommandProcessor::VITicks, -(s32)cyclesExecuted);
 
 					Common::AtomicStore(fifo.CPReadPointer, readPtr);
-					Common::AtomicAdd(fifo.CPReadWriteDistance, -32);
+					Common::AtomicAdd(fifo.CPReadWriteDistance, -length);
 					if ((write_ptr - s_video_buffer_read_ptr) == 0)
-						Common::AtomicStore(fifo.SafeCPReadPointer, fifo.CPReadPointer);
+						Common::AtomicStore(fifo.SafeCPReadPointer, readPtr);
 				}
 
 				CommandProcessor::SetCPStatusFromGPU();
@@ -401,7 +404,7 @@ void RunGpu()
 		{
 			FPURoundMode::SaveSIMDState();
 			FPURoundMode::LoadDefaultSIMDState();
-			ReadDataFromFifo(fifo.CPReadPointer);
+			ReadDataFromFifo(fifo.CPReadPointer, 32);
 			s_video_buffer_read_ptr = OpcodeDecoder_Run(DataReader(s_video_buffer_read_ptr, s_video_buffer_write_ptr), nullptr, false);
 			FPURoundMode::LoadSIMDState();
 		}
