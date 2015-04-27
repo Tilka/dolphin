@@ -483,22 +483,14 @@ if(NOT ANDROID)
 
 	endif()
 
-	set(CMAKE_REQUIRED_LIBRARIES portaudio)
-	CHECK_CXX_SOURCE_RUNS(
-		"#include <portaudio.h>
-		int main(int argc, char **argv)
-		{ if(Pa_GetVersion() >= 1890) return 0; else return 1; }"
-		PORTAUDIO)
-	unset(CMAKE_REQUIRED_LIBRARIES)
-	if(PORTAUDIO)
+	check_lib(PORTAUDIO portaudio portaudio.h)
+	if(PORTAUDIO_FOUND)
 		message("PortAudio found, enabling mic support")
 		add_definitions(-DHAVE_PORTAUDIO=1)
-		set(PORTAUDIO_FOUND TRUE)
 	else()
 		message("PortAudio not found, disabling mic support")
 		add_definitions(-DHAVE_PORTAUDIO=0)
-		set(PORTAUDIO_FOUND FALSE)
-	endif(PORTAUDIO)
+	endif(PORTAUDIO_FOUND)
 
 	if(OPROFILING)
 		check_lib(OPROFILE opagent opagent.h)
