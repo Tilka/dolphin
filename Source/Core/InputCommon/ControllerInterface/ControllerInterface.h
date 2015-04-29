@@ -17,7 +17,8 @@
 
 // enable disable sources
 #ifdef _WIN32
-	#define CIFACE_USE_XINPUT
+	// FIXME
+	//#define CIFACE_USE_XINPUT
 	#define CIFACE_USE_DINPUT
 #endif
 #if defined(HAVE_X11) && HAVE_X11

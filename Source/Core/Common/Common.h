@@ -58,7 +58,8 @@ private:
 
 // Since they are always around on Windows
 	#define HAVE_WX 1
-	#define HAVE_OPENAL 1
+	// FIXME
+	//#define HAVE_OPENAL 1
 
 	#define HAVE_PORTAUDIO 1
 

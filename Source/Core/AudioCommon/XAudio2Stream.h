@@ -23,7 +23,8 @@ struct IXAudio2MasteringVoice;
 
 class XAudio2 final : public SoundStream
 {
-#ifdef _WIN32
+// FIXME
+#if defined _WIN32 && !defined __MINGW32__
 
 private:
 	class Releaser

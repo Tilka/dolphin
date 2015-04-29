@@ -36,8 +36,8 @@ private:
 		Key(u8 index, const BYTE& key) : m_index(index), m_key(key) {}
 		ControlState GetState() const;
 	private:
-		const BYTE& m_key;
 		const u8 m_index;
+		const BYTE& m_key;
 	};
 
 	class Button : public Input
@@ -47,8 +47,8 @@ private:
 		Button(u8 index, const BYTE& button) : m_index(index), m_button(button) {}
 		ControlState GetState() const;
 	private:
-		const BYTE& m_button;
 		const u8 m_index;
+		const BYTE& m_button;
 	};
 
 	class Axis : public Input
@@ -58,9 +58,9 @@ private:
 		Axis(u8 index, const LONG& axis, LONG range) : m_index(index), m_axis(axis), m_range(range) {}
 		ControlState GetState() const;
 	private:
+		const u8 m_index;
 		const LONG& m_axis;
 		const LONG m_range;
-		const u8 m_index;
 	};
 
 	class Cursor : public Input
@@ -71,8 +71,8 @@ private:
 		Cursor(u8 index, const ControlState& axis, const bool positive) : m_index(index), m_axis(axis), m_positive(positive) {}
 		ControlState GetState() const;
 	private:
-		const ControlState& m_axis;
 		const u8 m_index;
+		const ControlState& m_axis;
 		const bool m_positive;
 	};
 

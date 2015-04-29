@@ -111,7 +111,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 			Crash(); \
 	}
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define _dbg_assert_msg_(_t_, _a_, _msg_, ...)\
 	if (MAX_LOGLEVEL >= LogTypes::LOG_LEVELS::LDEBUG && !(_a_)) {\
 		ERROR_LOG(_t_, _msg_, __VA_ARGS__); \
@@ -131,19 +131,19 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 #define _assert_(_a_) _dbg_assert_(MASTER_LOG, _a_)
 
 #ifndef GEKKO
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define _assert_msg_(_t_, _a_, _fmt_, ...) \
 	if (!(_a_)) {\
 		if (!PanicYesNo(_fmt_, __VA_ARGS__)) \
 			Crash(); \
 	}
-#else // not win32
+#else // not _MSC_VER
 #define _assert_msg_(_t_, _a_, _fmt_, ...) \
 	if (!(_a_)) {\
 		if (!PanicYesNo(_fmt_, ##__VA_ARGS__)) \
 			Crash(); \
 	}
-#endif // WIN32
+#endif // _MSC_VER
 #else // GEKKO
 #define _assert_msg_(_t_, _a_, _fmt_, ...)
 #endif

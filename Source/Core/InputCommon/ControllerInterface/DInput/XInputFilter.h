@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <Windows.h>
+#include <windows.h>
 
 namespace ciface
 {

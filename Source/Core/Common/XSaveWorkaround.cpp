@@ -5,7 +5,7 @@
 #if defined(_WIN32)
 
 #include <math.h>
-#include <Windows.h>
+#include <windows.h>
 
 typedef decltype(&GetEnabledXStateFeatures) GetEnabledXStateFeatures_t;
 

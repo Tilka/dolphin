@@ -148,6 +148,7 @@ endif()
 if(NOT ENABLE_GENERIC)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR
 	   ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86" OR
+	   ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64" OR
 	   APPLE)
 		if(_ARCH_64)
 			set(_M_X86 1)
@@ -389,6 +390,8 @@ if(NOT ANDROID)
 		message("ALSA NOT found, disabling ALSA sound backend")
 	endif(ALSA_FOUND)
 
+# FIXME
+if(NOT WIN32)
 	check_lib(AO ao QUIET)
 	if(AO_FOUND)
 		add_definitions(-DHAVE_AO=1)
@@ -415,6 +418,7 @@ if(NOT ANDROID)
 		add_definitions(-DHAVE_PULSEAUDIO=0)
 		message("PulseAudio NOT found, disabling PulseAudio sound backend")
 	endif(PULSEAUDIO_FOUND)
+endif()
 
 	include(FindOpenAL OPTIONAL)
 	if(OPENAL_FOUND)
@@ -426,6 +430,8 @@ if(NOT ANDROID)
 		message("OpenAL NOT found, disabling OpenAL sound backend")
 	endif(OPENAL_FOUND)
 
+# FIXME
+if(NOT WIN32)
 	include(FindLLVM OPTIONAL)
 	if (LLVM_FOUND)
 		add_definitions(-DHAS_LLVM=1)
@@ -436,6 +442,7 @@ if(NOT ANDROID)
 
 		message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 	endif()
+endif()
 
 	set(USE_X11 0)
 

@@ -120,7 +120,7 @@ KeyboardMouse::KeyboardMouse(const LPDIRECTINPUTDEVICE8 kb_device, const LPDIREC
 		AddInput(new Cursor(!!(i&2), (&m_state_in.cursor.x)[i/2], !!(i&1)));
 }
 
-void GetMousePos(ControlState* const x, ControlState* const y)
+static void GetMousePos(ControlState* const x, ControlState* const y)
 {
 	POINT point = { 1, 1 };
 	GetCursorPos(&point);

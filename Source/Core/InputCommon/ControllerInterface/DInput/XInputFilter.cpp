@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <WbemIdl.h>
-#include <Windows.h>
+#include <windows.h>
 
 #define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p)=nullptr; } }
 

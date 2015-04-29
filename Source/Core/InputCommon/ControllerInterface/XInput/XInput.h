@@ -6,12 +6,13 @@
 #pragma once
 
 #include <windows.h>
-#include <XInput.h>
+#include <xinput.h>
 
 #include "InputCommon/ControllerInterface/Device.h"
 
 #ifndef XINPUT_DEVSUBTYPE_FLIGHT_STICK
-#error You are building this module against the wrong version of DirectX. You probably need to remove DXSDK_DIR from your include path and/or _WIN32_WINNT is wrong.
+// FIXME
+//#error You are building this module against the wrong version of DirectX. You probably need to remove DXSDK_DIR from your include path and/or _WIN32_WINNT is wrong.
 #endif
 
 namespace ciface
@@ -32,8 +33,8 @@ private:
 		Button(u8 index, const WORD& buttons) : m_index(index), m_buttons(buttons) {}
 		ControlState GetState() const;
 	private:
-		const WORD& m_buttons;
 		u8 m_index;
+		const WORD& m_buttons;
 	};
 
 	class Axis : public Core::Device::Input
@@ -43,9 +44,9 @@ private:
 		Axis(u8 index, const SHORT& axis, SHORT range) : m_index(index), m_axis(axis), m_range(range) {}
 		ControlState GetState() const;
 	private:
+		const u8 m_index;
 		const SHORT& m_axis;
 		const SHORT m_range;
-		const u8 m_index;
 	};
 
 	class Trigger : public Core::Device::Input
@@ -55,9 +56,9 @@ private:
 		Trigger(u8 index, const BYTE& trigger, BYTE range) : m_index(index), m_trigger(trigger), m_range(range) {}
 		ControlState GetState() const;
 	private:
+		const u8 m_index;
 		const BYTE& m_trigger;
 		const BYTE m_range;
-		const u8 m_index;
 	};
 
 	class Motor : public Core::Device::Output
@@ -67,10 +68,10 @@ private:
 		Motor(u8 index, Device* parent, WORD &motor, WORD range) : m_index(index), m_parent(parent), m_motor(motor), m_range(range) {}
 		void SetState(ControlState state);
 	private:
-		WORD& m_motor;
-		const WORD m_range;
 		const u8 m_index;
 		Device* m_parent;
+		WORD& m_motor;
+		const WORD m_range;
 	};
 
 public:
@@ -87,8 +88,8 @@ public:
 private:
 	XINPUT_STATE m_state_in;
 	XINPUT_VIBRATION m_state_out;
-	const BYTE m_subtype;
 	const u8 m_index;
+	const BYTE m_subtype;
 };
 
 

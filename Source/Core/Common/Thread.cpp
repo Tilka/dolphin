@@ -33,7 +33,6 @@ int CurrentThreadId()
 
 #ifdef _WIN32
 
-// Supporting functions
 void SleepCurrentThread(int ms)
 {
 	Sleep(ms);
@@ -43,6 +42,23 @@ void SwitchCurrentThread()
 {
 	SwitchToThread();
 }
+
+#else
+
+void SleepCurrentThread(int ms)
+{
+	usleep(1000 * ms);
+}
+
+void SwitchCurrentThread()
+{
+	usleep(1000 * 1);
+}
+
+#endif
+
+
+#ifdef _MSC_VER
 
 // Sets the debugger-visible name of the current thread.
 // Uses undocumented (actually, it is now documented) trick.
@@ -77,17 +93,7 @@ void SetCurrentThreadName(const char* szThreadName)
 	{}
 }
 
-#else // !WIN32, so must be POSIX threads
-
-void SleepCurrentThread(int ms)
-{
-	usleep(1000 * ms);
-}
-
-void SwitchCurrentThread()
-{
-	usleep(1000 * 1);
-}
+#else // !_MSC_VER, so must be POSIX threads
 
 void SetCurrentThreadName(const char* szThreadName)
 {

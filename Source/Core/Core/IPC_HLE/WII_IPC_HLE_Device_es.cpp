@@ -55,7 +55,7 @@
 #include "Core/PowerPC/PowerPC.h"
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #endif
 
 std::string CWII_IPC_HLE_Device_es::m_ContentFile;

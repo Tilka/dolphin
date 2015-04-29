@@ -32,7 +32,7 @@ if(PULSEAUDIO_FOUND)
 endif(PULSEAUDIO_FOUND)
 
 if(WIN32)
-	set(SRCS ${SRCS} XAudio2Stream.cpp)
+	set(SRCS ${SRCS} XAudio2Stream.cpp XAudio2_7Stream.cpp)
 elseif(APPLE)
 	set(SRCS ${SRCS} CoreAudioSoundStream.cpp)
 endif()

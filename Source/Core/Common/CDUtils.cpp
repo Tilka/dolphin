@@ -31,7 +31,7 @@
 
 #ifdef _WIN32
 // takes a root drive path, returns true if it is a cdrom drive
-bool is_cdrom(const TCHAR* drive)
+static bool is_cdrom(const TCHAR* drive)
 {
 	return (DRIVE_CDROM == GetDriveType(drive));
 }

@@ -19,7 +19,7 @@
 
 #ifdef _WIN32
 
-#include <Windows.h>
+#include <windows.h>
 
 struct StreamingVoiceContext2_7;
 struct IXAudio2;

@@ -12,7 +12,7 @@
 
 #pragma once
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <concrt.h>
 #endif
 
@@ -26,7 +26,7 @@ namespace Common {
 
 // Windows uses a specific implementation because std::condition_variable has
 // terrible performance for this kind of workload with MSVC++ 2013.
-#ifndef _WIN32
+#ifndef _MSC_VER
 class Event final
 {
 public:

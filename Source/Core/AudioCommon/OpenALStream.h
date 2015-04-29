@@ -13,7 +13,7 @@
 #include "Core/HW/SystemTimers.h"
 
 #if defined HAVE_OPENAL && HAVE_OPENAL
-#ifdef _WIN32
+#if defined _WIN32 && !defined __MINGW32__
 #include <OpenAL/include/al.h>
 #include <OpenAL/include/alc.h>
 #include <OpenAL/include/alext.h>

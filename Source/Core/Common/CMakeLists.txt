@@ -65,4 +65,7 @@ if(NOT APPLE AND NOT ANDROID)
 endif()
 
 add_dolphin_library(common "${SRCS}" "${LIBS}")
-add_executable(traversal_server TraversalServer.cpp)
+
+if(NOT WIN32)
+	add_executable(traversal_server TraversalServer.cpp)
+endif()

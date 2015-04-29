@@ -19,7 +19,7 @@
 #include "Common/StringUtil.h"
 
 #ifdef _WIN32
-	#include <Windows.h>
+	#include <windows.h>
 #else
 	#include <iconv.h>
 	#include <locale.h>

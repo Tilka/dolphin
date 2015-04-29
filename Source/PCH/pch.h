@@ -63,11 +63,12 @@
 
 #ifdef _WIN32
 
-#if _MSC_FULL_VER < 180030723
+#if defined _MSC_VER && _MSC_FULL_VER < 180030723
 #error Please update your build environment to VS2013 with Update 3 or later!
 #endif
 
-#include <Windows.h>
+#include <winsock2.h>
+#include <windows.h>
 
 #endif
 

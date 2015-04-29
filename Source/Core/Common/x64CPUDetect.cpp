@@ -9,7 +9,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Intrinsics.h"
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 
 #if defined __FreeBSD__
 #include <sys/types.h>

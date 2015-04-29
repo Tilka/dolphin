@@ -10,7 +10,7 @@
 #include "InputCommon/ControllerInterface/Device.h"
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #include "InputCommon/ControllerInterface/DInput/DInput8.h"
 #elif __APPLE__
 #include "InputCommon/ControllerInterface/ForceFeedback/OSX/DirectInputAdapter.h"
