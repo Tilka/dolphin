@@ -186,6 +186,32 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 				MOV(32, dest, R(scratch3));
 				data.AddMemOffset(sizeof(float));
 				dest.AddMemOffset(sizeof(float));
+
+				// zfreeze
+				if (native_format == &m_native_vtx_decl.position)
+				{
+					if (cpu_info.bSSE4_1)
+					{
+						PINSRD(XMM0, R(scratch3), i);
+					}
+					else
+					{
+						PINSRW(XMM0, R(scratch3), 2 * i + 0);
+						SHR(32, R(scratch3), Imm8(16));
+						PINSRW(XMM0, R(scratch3), 2 * i + 1);
+					}
+				}
+			}
+
+			// zfreeze
+			if (native_format == &m_native_vtx_decl.position)
+			{
+				CMP(32, R(count_reg), Imm8(3));
+				FixupBranch dont_store = J_CC(CC_A);
+				LEA(32, scratch3, MScaled(count_reg, SCALE_4, -4));
+				u64 addr = (u64)VertexLoaderManager::position_cache;
+				MOVUPS(MScaled(scratch3, sizeof(float), (s32)addr), coords);
+				SetJumpTarget(dont_store);
 			}
 			return load_bytes;
 		}
@@ -204,6 +230,17 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 		case 1: MOVSS(dest, coords); break;
 		case 2: MOVLPS(dest, coords); break;
 		case 3: MOVUPS(dest, coords); break;
+	}
+
+	// zfreeze
+	if (native_format == &m_native_vtx_decl.position)
+	{
+		CMP(32, R(count_reg), Imm8(3));
+		FixupBranch dont_store = J_CC(CC_A);
+		LEA(32, scratch3, MScaled(count_reg, SCALE_4, -4));
+		u64 addr = (u64)VertexLoaderManager::position_cache;
+		MOVUPS(MScaled(scratch3, sizeof(float), (s32)addr), coords);
+		SetJumpTarget(dont_store);
 	}
 
 	return load_bytes;
@@ -380,6 +417,14 @@ void VertexLoaderX64::GenerateVertexLoader()
 		MOVZX(32, 8, scratch1, MDisp(src_reg, m_src_ofs));
 		AND(32, R(scratch1), Imm8(0x3F));
 		MOV(32, MDisp(dst_reg, m_dst_ofs), R(scratch1));
+
+		// zfreeze
+		CMP(32, R(count_reg), Imm8(3));
+		FixupBranch dont_store = J_CC(CC_A);
+		u64 offset = (u64)VertexLoaderManager::position_matrix_index - sizeof(u32);
+		MOV(32, MScaled(count_reg, sizeof(u32), (s32)offset), R(scratch1));
+		SetJumpTarget(dont_store);
+
 		m_native_components |= VB_HAS_POSMTXIDX;
 		m_native_vtx_decl.posmtx.components = 4;
 		m_native_vtx_decl.posmtx.enable = true;
