@@ -72,6 +72,14 @@ void Jit64::HandleNaNs(UGeckoInstruction inst, X64Reg xmm_out, X64Reg xmm, X64Re
 		return;
 	}
 
+	bool packed = inst.OPCD == 4;
+	bool single = inst.OPCD == 4 || inst.OPCD == 59;
+	bool negated = inst.SUBOP5 == 30 || inst.SUBOP5 == 31;
+
+	// nmXXXs intermediate results are already rounded and will not be rounded again.
+	// If we replace a result in the slow path, round it there.
+	bool round = single && negated;
+
 	_assert_(xmm != clobber);
 
 	std::vector<u32> inputs;
@@ -83,9 +91,9 @@ void Jit64::HandleNaNs(UGeckoInstruction inst, X64Reg xmm_out, X64Reg xmm, X64Re
 		if (std::find(inputs.begin(), inputs.end(), i) == inputs.end())
 			inputs.push_back(i);
 	}
-	if (inst.OPCD != 4)
+	if (!packed)
 	{
-		// not paired-single
+		// scalar
 		UCOMISD(xmm, R(xmm));
 		FixupBranch handle_nan = J_CC(CC_P, true);
 		SwitchToFarCode();
@@ -100,13 +108,15 @@ void Jit64::HandleNaNs(UGeckoInstruction inst, X64Reg xmm_out, X64Reg xmm, X64Re
 			MOVDDUP(xmm, M(psGeneratedQNaN));
 			for (FixupBranch fixup : fixups)
 				SetJumpTarget(fixup);
+			if (round)
+				ForceSinglePrecision(xmm, R(xmm), false, false);
 			FixupBranch done = J(true);
 		SwitchToNearCode();
 		SetJumpTarget(done);
 	}
 	else
 	{
-		// paired-single
+		// packed
 		std::reverse(inputs.begin(), inputs.end());
 		if (cpu_info.bSSE4_1)
 		{
@@ -122,6 +132,8 @@ void Jit64::HandleNaNs(UGeckoInstruction inst, X64Reg xmm_out, X64Reg xmm, X64Re
 					avx_op(&XEmitter::VCMPPD, &XEmitter::CMPPD, clobber, fpr.R(x), fpr.R(x), CMP_UNORD);
 					BLENDVPD(xmm, fpr.R(x));
 				}
+				if (round)
+					ForceSinglePrecision(xmm, R(xmm), false, false);
 				FixupBranch done = J(true);
 			SwitchToNearCode();
 			SetJumpTarget(done);
@@ -152,6 +164,8 @@ void Jit64::HandleNaNs(UGeckoInstruction inst, X64Reg xmm_out, X64Reg xmm, X64Re
 					PAND(xmm, R(tmp));
 					POR(xmm, R(clobber));
 				}
+				if (round)
+					ForceSinglePrecision(xmm, R(xmm), false, false);
 				FixupBranch done = J(true);
 			SwitchToNearCode();
 			SetJumpTarget(done);
@@ -231,17 +245,18 @@ void Jit64::fmaddXX(UGeckoInstruction inst)
 
 	switch(inst.SUBOP5)
 	{
-	case 14:
+	case 14: // ps_madds0
 		MOVDDUP(XMM1, fpr.R(c));
 		if (round_input)
 			Force25BitPrecision(XMM1, R(XMM1), XMM0);
 		break;
-	case 15:
+	case 15: // ps_madds1
 		avx_op(&XEmitter::VSHUFPD, &XEmitter::SHUFPD, XMM1, fpr.R(c), fpr.R(c), 3);
 		if (round_input)
 			Force25BitPrecision(XMM1, R(XMM1), XMM0);
 		break;
 	default:
+		// The non-FMA implementation of fnmsub(s) needs the intermediate value in XMM0.
 		bool special = inst.SUBOP5 == 30 && (!cpu_info.bFMA || Core::g_want_determinism);
 		X64Reg tmp1 = special ? XMM0 : XMM1;
 		X64Reg tmp2 = special ? XMM1 : XMM0;
@@ -266,34 +281,36 @@ void Jit64::fmaddXX(UGeckoInstruction inst)
 		switch (inst.SUBOP5)
 		{
 		case 28: //msub
+		case 30: //nmsub
 			if (packed)
 				VFMSUB132PD(XMM1, fpr.RX(b), fpr.R(a));
 			else
 				VFMSUB132SD(XMM1, fpr.RX(b), fpr.R(a));
+			if (inst.SUBOP5 == 30)
+			{
+				// Can't use VFNM* directly,
+				// PowerPC rounds before negating.
+				if (single)
+					ForceSinglePrecision(XMM1, R(XMM1), packed, false);
+				XORPD(XMM1, M(packed ? psSignBits2 : psSignBits));
+			}
 			break;
 		case 14: //madds0
 		case 15: //madds1
 		case 29: //madd
+		case 31: //nmadd
 			if (packed)
 				VFMADD132PD(XMM1, fpr.RX(b), fpr.R(a));
 			else
 				VFMADD132SD(XMM1, fpr.RX(b), fpr.R(a));
-			break;
-			// PowerPC and x86 define NMADD/NMSUB differently
-			// x86: D = -A*C (+/-) B
-			// PPC: D = -(A*C (+/-) B)
-			// so we have to swap them; the ADD/SUB here isn't a typo.
-		case 30: //nmsub
-			if (packed)
-				VFNMADD132PD(XMM1, fpr.RX(b), fpr.R(a));
-			else
-				VFNMADD132SD(XMM1, fpr.RX(b), fpr.R(a));
-			break;
-		case 31: //nmadd
-			if (packed)
-				VFNMSUB132PD(XMM1, fpr.RX(b), fpr.R(a));
-			else
-				VFNMSUB132SD(XMM1, fpr.RX(b), fpr.R(a));
+			if (inst.SUBOP5 == 31)
+			{
+				// Can't use VFNM* directly,
+				// PowerPC rounds before negating.
+				if (single)
+					ForceSinglePrecision(XMM1, R(XMM1), packed, false);
+				XORPD(XMM1, M(packed ? psSignBits2 : psSignBits));
+			}
 			break;
 		}
 	}
@@ -311,6 +328,8 @@ void Jit64::fmaddXX(UGeckoInstruction inst)
 			MULSD(XMM0, fpr.R(a));
 			SUBSD(XMM1, R(XMM0));
 		}
+		if (single)
+			ForceSinglePrecision(XMM1, R(XMM1), packed, true);
 	}
 	else
 	{
@@ -331,13 +350,20 @@ void Jit64::fmaddXX(UGeckoInstruction inst)
 				ADDSD(XMM1, fpr.R(b));
 		}
 		if (inst.SUBOP5 == 31) //nmadd
+		{
+			if (single)
+				ForceSinglePrecision(XMM1, R(XMM1), packed, true);
 			PXOR(XMM1, M(packed ? psSignBits2 : psSignBits));
+		}
 	}
 	fpr.BindToRegister(d, !single);
 	if (single)
 	{
 		HandleNaNs(inst, fpr.RX(d), XMM1);
-		ForceSinglePrecision(fpr.RX(d), fpr.R(d), packed, true);
+
+		// nmXXXs results are rounded before negation.
+		if (inst.SUBOP5 != 30 && inst.SUBOP5 != 31)
+			ForceSinglePrecision(fpr.RX(d), fpr.R(d), packed, true);
 	}
 	else
 	{
