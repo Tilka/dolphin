@@ -6,6 +6,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Intrinsics.h"
 #include "Common/JitRegister.h"
+#include "Common/MathUtil.h"
 #include "Common/x64ABI.h"
 #include "VideoCommon/VertexLoaderManager.h"
 #include "VideoCommon/VertexLoaderX64.h"
@@ -61,9 +62,53 @@ OpArg VertexLoaderX64::GetVertexAddr(int array, u64 attribute)
 			CMP(bits, R(scratch1), Imm8(-1));
 			m_skip_vertex = J_CC(CC_E, true);
 		}
-		IMUL(32, scratch1, MPIC(&g_main_cp_state.array_strides[array]));
+		OpArg result = MRegSum(scratch2, scratch1);
+		if (m_constant_array_strides)
+		{
+			m_used_strides[array] = true;
+			u32 stride = g_main_cp_state.array_strides[array];
+			m_strides[array] = stride;
+
+			int shift = __builtin_ctz(stride);
+			int r = stride >>= shift;
+			if (r ==  1 || r ==  3 || r ==  5 || r ==  9 ||
+			    r == 15 || r == 25 || r == 27 || r == 45 || r == 81)
+			{
+				if (shift > 4)
+				{
+					SHL(32, R(scratch1), Imm8(shift));
+				}
+				else
+				{
+					if (shift == 4)
+					{
+						ADD(32, R(scratch1), R(scratch1));
+						shift = 3;
+					}
+					result = MComplex(scratch2, scratch1, 1 << shift, 0);
+				}
+				stride = r;
+			}
+			if (stride == 15 || stride == 25 || stride == 27 || stride == 45 || stride == 81)
+			{
+				int factor = stride <= 25 ? 5 : 9;
+				LEA(32, scratch1, MComplex(scratch1, scratch1, factor - 1, 0));
+				stride /= factor;
+			}
+			if (stride == 3 || stride == 5 || stride == 9)
+			{
+				LEA(32, scratch1, MComplex(scratch1, scratch1, stride - 1, 0));
+				stride = 1;
+			}
+			if (stride != 1)
+				IMUL(32, scratch1, Imm32(stride));
+		}
+		else
+		{
+			IMUL(32, scratch1, MPIC(&g_main_cp_state.array_strides[array]));
+		}
 		MOV(64, R(scratch2), MPIC(&VertexLoaderManager::cached_arraybases[array]));
-		return MRegSum(scratch1, scratch2);
+		return result;
 	}
 	else
 	{
@@ -422,6 +467,10 @@ void VertexLoaderX64::GenerateVertexLoader()
 	if (m_VtxDesc.Position & MASK_INDEXED)
 		XOR(32, R(skipped_reg), R(skipped_reg));
 
+	// If the m_constant_array_strides optimization failed,
+	// we need to reset the offsets.
+	m_src_ofs = m_dst_ofs = 0;
+
 	// TODO: load constants into registers outside the main loop
 
 	const u8* loop_start = GetCodePtr();
@@ -577,6 +626,26 @@ void VertexLoaderX64::GenerateVertexLoader()
 
 int VertexLoaderX64::RunVertices(DataReader src, DataReader dst, int count)
 {
+	if (m_constant_array_strides)
+	{
+		for (int i : m_used_strides)
+		{
+			if (m_strides[i] != g_main_cp_state.array_strides[i])
+			{
+				m_constant_array_strides = false;
+				break;
+			}
+		}
+		if (!m_constant_array_strides)
+		{
+			WARN_LOG(VIDEO, "array stride changed, falling back to non-immediate IMUL");
+			ResetCodePtr();
+			UnWriteProtectMemory(GetWritableCodePtr(), 4096);
+			ClearCodeSpace();
+			GenerateVertexLoader();
+			WriteProtect();
+		}
+	}
 	m_numLoadedVertices += count;
 	return ((int (*)(u8*, u8*, int, const void*))region)(
 		src.GetPointer(),

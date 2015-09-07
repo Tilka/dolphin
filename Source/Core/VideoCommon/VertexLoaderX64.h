@@ -16,8 +16,11 @@ protected:
 	int RunVertices(DataReader src, DataReader dst, int count) override;
 
 private:
-	u32 m_src_ofs = 0;
-	u32 m_dst_ofs = 0;
+	bool m_constant_array_strides = true;
+	BitSet32 m_used_strides = BitSet32(0);
+	u32 m_strides[16];
+	u32 m_src_ofs;
+	u32 m_dst_ofs;
 	Gen::FixupBranch m_skip_vertex;
 	Gen::OpArg GetVertexAddr(int array, u64 attribute);
 	int ReadVertex(Gen::OpArg data, u64 attribute, int format, int count_in, int count_out, bool dequantize, u8 scaling_exponent, AttributeFormat* native_format);
