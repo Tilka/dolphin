@@ -212,7 +212,7 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 				CMP(32, R(count_reg), Imm8(3));
 				FixupBranch dont_store = J_CC(CC_A);
 				LEA(32, scratch3, MScaled(count_reg, SCALE_4, -4));
-				MOVUPS(MPIC(VertexLoaderManager::position_cache, scratch3, SCALE_4), coords);
+				MOVDQA(MPIC(VertexLoaderManager::position_cache, scratch3, SCALE_4), coords);
 				SetJumpTarget(dont_store);
 			}
 			return load_bytes;
@@ -225,13 +225,22 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 
 		if (dequantize && scaling_exponent)
 			MULPS(coords, MPIC(&scale_factors[scaling_exponent]));
-	}
 
-	switch (count_out)
+		switch (count_out)
+		{
+		case 1: MOVSS(dest, coords); break;
+		case 2: MOVLPS(dest, coords); break;
+		case 3: MOVUPS(dest, coords); break;
+		}
+	}
+	else
 	{
-	case 1: MOVSS(dest, coords); break;
-	case 2: MOVLPS(dest, coords); break;
-	case 3: MOVUPS(dest, coords); break;
+		switch (count_out)
+		{
+		case 1: MOVD_xmm(dest, coords); break;
+		case 2: MOVQ_xmm(dest, coords); break;
+		case 3: MOVDQU(dest, coords); break;
+		}
 	}
 
 	// zfreeze
@@ -240,7 +249,10 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 		CMP(32, R(count_reg), Imm8(3));
 		FixupBranch dont_store = J_CC(CC_A);
 		LEA(32, scratch3, MScaled(count_reg, SCALE_4, -4));
-		MOVUPS(MPIC(VertexLoaderManager::position_cache, scratch3, SCALE_4), coords);
+		if (format == FORMAT_FLOAT)
+			MOVDQA(MPIC(VertexLoaderManager::position_cache, scratch3, SCALE_4), coords);
+		else
+			MOVAPS(MPIC(VertexLoaderManager::position_cache, scratch3, SCALE_4), coords);
 		SetJumpTarget(dont_store);
 	}
 
