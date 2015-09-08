@@ -22,7 +22,7 @@ static const X64Reg count_reg = R10;
 static const X64Reg skipped_reg = R11;
 static const X64Reg base_reg = RBX;
 
-static const u8* memory_base_ptr = (u8*)&g_main_cp_state.array_strides;
+static const u8* memory_base_ptr = (u8*)VertexLoaderManager::cached_arraybases;
 
 static OpArg MPIC(const void* ptr, X64Reg scale_reg, int scale = SCALE_1)
 {
@@ -116,36 +116,43 @@ OpArg VertexLoaderX64::GetVertexAddr(int array, u64 attribute)
 	}
 }
 
+static const __m128i s_shuffle_lut[5][3] = {
+	{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFF00L),  // 1x u8
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFF01L, 0xFFFFFF00L),  // 2x u8
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFF02L, 0xFFFFFF01L, 0xFFFFFF00L)}, // 3x u8
+	{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x00FFFFFFL),  // 1x s8
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x01FFFFFFL, 0x00FFFFFFL),  // 2x s8
+	 _mm_set_epi32(0xFFFFFFFFL, 0x02FFFFFFL, 0x01FFFFFFL, 0x00FFFFFFL)}, // 3x s8
+	{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFF0001L),  // 1x u16
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFF0203L, 0xFFFF0001L),  // 2x u16
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFF0405L, 0xFFFF0203L, 0xFFFF0001L)}, // 3x u16
+	{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x0001FFFFL),  // 1x s16
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x0203FFFFL, 0x0001FFFFL),  // 2x s16
+	 _mm_set_epi32(0xFFFFFFFFL, 0x0405FFFFL, 0x0203FFFFL, 0x0001FFFFL)}, // 3x s16
+	{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x00010203L),  // 1x float
+	 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x04050607L, 0x00010203L),  // 2x float
+	 _mm_set_epi32(0xFFFFFFFFL, 0x08090A0BL, 0x04050607L, 0x00010203L)}, // 3x float
+};
+
+static const __m128 s_scale_factors[32] = {
+	_mm_set_ps1(1./(1u<< 0)), _mm_set_ps1(1./(1u<< 1)), _mm_set_ps1(1./(1u<< 2)), _mm_set_ps1(1./(1u<< 3)),
+	_mm_set_ps1(1./(1u<< 4)), _mm_set_ps1(1./(1u<< 5)), _mm_set_ps1(1./(1u<< 6)), _mm_set_ps1(1./(1u<< 7)),
+	_mm_set_ps1(1./(1u<< 8)), _mm_set_ps1(1./(1u<< 9)), _mm_set_ps1(1./(1u<<10)), _mm_set_ps1(1./(1u<<11)),
+	_mm_set_ps1(1./(1u<<12)), _mm_set_ps1(1./(1u<<13)), _mm_set_ps1(1./(1u<<14)), _mm_set_ps1(1./(1u<<15)),
+	_mm_set_ps1(1./(1u<<16)), _mm_set_ps1(1./(1u<<17)), _mm_set_ps1(1./(1u<<18)), _mm_set_ps1(1./(1u<<19)),
+	_mm_set_ps1(1./(1u<<20)), _mm_set_ps1(1./(1u<<21)), _mm_set_ps1(1./(1u<<22)), _mm_set_ps1(1./(1u<<23)),
+	_mm_set_ps1(1./(1u<<24)), _mm_set_ps1(1./(1u<<25)), _mm_set_ps1(1./(1u<<26)), _mm_set_ps1(1./(1u<<27)),
+	_mm_set_ps1(1./(1u<<28)), _mm_set_ps1(1./(1u<<29)), _mm_set_ps1(1./(1u<<30)), _mm_set_ps1(1./(1u<<31)),
+};
+
+OpArg VertexLoaderX64::GetConstant(const void* ptr)
+{
+	auto pair = m_constants.find(ptr);
+	return pair == m_constants.end() ? MPIC(ptr) : R(pair->second);
+}
+
 int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count_in, int count_out, bool dequantize, u8 scaling_exponent, AttributeFormat* native_format)
 {
-	static const __m128i shuffle_lut[5][3] = {
-		{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFF00L),  // 1x u8
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFF01L, 0xFFFFFF00L),  // 2x u8
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFF02L, 0xFFFFFF01L, 0xFFFFFF00L)}, // 3x u8
-		{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x00FFFFFFL),  // 1x s8
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x01FFFFFFL, 0x00FFFFFFL),  // 2x s8
-		 _mm_set_epi32(0xFFFFFFFFL, 0x02FFFFFFL, 0x01FFFFFFL, 0x00FFFFFFL)}, // 3x s8
-		{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFF0001L),  // 1x u16
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFF0203L, 0xFFFF0001L),  // 2x u16
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFF0405L, 0xFFFF0203L, 0xFFFF0001L)}, // 3x u16
-		{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x0001FFFFL),  // 1x s16
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x0203FFFFL, 0x0001FFFFL),  // 2x s16
-		 _mm_set_epi32(0xFFFFFFFFL, 0x0405FFFFL, 0x0203FFFFL, 0x0001FFFFL)}, // 3x s16
-		{_mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0xFFFFFFFFL, 0x00010203L),  // 1x float
-		 _mm_set_epi32(0xFFFFFFFFL, 0xFFFFFFFFL, 0x04050607L, 0x00010203L),  // 2x float
-		 _mm_set_epi32(0xFFFFFFFFL, 0x08090A0BL, 0x04050607L, 0x00010203L)}, // 3x float
-	};
-	static const __m128 scale_factors[32] = {
-		_mm_set_ps1(1./(1u<< 0)), _mm_set_ps1(1./(1u<< 1)), _mm_set_ps1(1./(1u<< 2)), _mm_set_ps1(1./(1u<< 3)),
-		_mm_set_ps1(1./(1u<< 4)), _mm_set_ps1(1./(1u<< 5)), _mm_set_ps1(1./(1u<< 6)), _mm_set_ps1(1./(1u<< 7)),
-		_mm_set_ps1(1./(1u<< 8)), _mm_set_ps1(1./(1u<< 9)), _mm_set_ps1(1./(1u<<10)), _mm_set_ps1(1./(1u<<11)),
-		_mm_set_ps1(1./(1u<<12)), _mm_set_ps1(1./(1u<<13)), _mm_set_ps1(1./(1u<<14)), _mm_set_ps1(1./(1u<<15)),
-		_mm_set_ps1(1./(1u<<16)), _mm_set_ps1(1./(1u<<17)), _mm_set_ps1(1./(1u<<18)), _mm_set_ps1(1./(1u<<19)),
-		_mm_set_ps1(1./(1u<<20)), _mm_set_ps1(1./(1u<<21)), _mm_set_ps1(1./(1u<<22)), _mm_set_ps1(1./(1u<<23)),
-		_mm_set_ps1(1./(1u<<24)), _mm_set_ps1(1./(1u<<25)), _mm_set_ps1(1./(1u<<26)), _mm_set_ps1(1./(1u<<27)),
-		_mm_set_ps1(1./(1u<<28)), _mm_set_ps1(1./(1u<<29)), _mm_set_ps1(1./(1u<<30)), _mm_set_ps1(1./(1u<<31)),
-	};
-
 	X64Reg coords = XMM0;
 
 	int elem_size = 1 << (format / 2);
@@ -172,7 +179,7 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 		else
 			MOVD_xmm(coords, data);
 
-		PSHUFB(coords, MPIC(&shuffle_lut[format][count_in - 1]));
+		PSHUFB(coords, GetConstant(&s_shuffle_lut[format][count_in - 1]));
 
 		// Sign-extend.
 		if (format == FORMAT_BYTE)
@@ -269,7 +276,7 @@ int VertexLoaderX64::ReadVertex(OpArg data, u64 attribute, int format, int count
 		CVTDQ2PS(coords, R(coords));
 
 		if (dequantize && scaling_exponent)
-			MULPS(coords, MPIC(&scale_factors[scaling_exponent]));
+			MULPS(coords, GetConstant(&s_scale_factors[scaling_exponent]));
 
 		switch (count_out)
 		{
@@ -452,7 +459,49 @@ void VertexLoaderX64::ReadColor(OpArg data, u64 attribute, int format)
 
 void VertexLoaderX64::GenerateVertexLoader()
 {
+	static const u8 format_to_frac_map[8] = { 7, 6, 15, 14 };
+	u8 normal_frac = format_to_frac_map[m_VtxAttr.NormalFormat];
+
+	// Pre-load XMM constants into registers.
+	struct {
+		const void* ptr;
+		bool needed;
+	} values[] = {
+		{&s_shuffle_lut[m_VtxAttr.PosFormat][m_VtxAttr.PosElements + 1], true},
+		{&s_shuffle_lut[m_VtxAttr.NormalFormat][2], !!m_VtxDesc.Normal},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[0].Format][m_VtxAttr.texCoord[0].Elements], !!m_VtxDesc.Tex0Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[1].Format][m_VtxAttr.texCoord[1].Elements], !!m_VtxDesc.Tex1Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[2].Format][m_VtxAttr.texCoord[2].Elements], !!m_VtxDesc.Tex2Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[3].Format][m_VtxAttr.texCoord[3].Elements], !!m_VtxDesc.Tex3Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[4].Format][m_VtxAttr.texCoord[4].Elements], !!m_VtxDesc.Tex4Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[5].Format][m_VtxAttr.texCoord[5].Elements], !!m_VtxDesc.Tex5Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[6].Format][m_VtxAttr.texCoord[6].Elements], !!m_VtxDesc.Tex6Coord},
+		{&s_shuffle_lut[m_VtxAttr.texCoord[7].Format][m_VtxAttr.texCoord[7].Elements], !!m_VtxDesc.Tex7Coord},
+		{&s_scale_factors[m_VtxAttr.PosFrac], m_VtxAttr.PosFormat != FORMAT_FLOAT && m_VtxAttr.PosFrac},
+		{&s_scale_factors[normal_frac], m_VtxAttr.NormalFormat != FORMAT_FLOAT && m_VtxDesc.Normal},
+		{&s_scale_factors[m_VtxAttr.texCoord[0].Frac], m_VtxAttr.texCoord[0].Format != FORMAT_FLOAT && m_VtxDesc.Tex0Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[1].Frac], m_VtxAttr.texCoord[1].Format != FORMAT_FLOAT && m_VtxDesc.Tex1Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[2].Frac], m_VtxAttr.texCoord[2].Format != FORMAT_FLOAT && m_VtxDesc.Tex2Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[3].Frac], m_VtxAttr.texCoord[3].Format != FORMAT_FLOAT && m_VtxDesc.Tex3Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[4].Frac], m_VtxAttr.texCoord[4].Format != FORMAT_FLOAT && m_VtxDesc.Tex4Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[5].Frac], m_VtxAttr.texCoord[5].Format != FORMAT_FLOAT && m_VtxDesc.Tex5Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[6].Frac], m_VtxAttr.texCoord[6].Format != FORMAT_FLOAT && m_VtxDesc.Tex6Coord},
+		{&s_scale_factors[m_VtxAttr.texCoord[7].Frac], m_VtxAttr.texCoord[7].Format != FORMAT_FLOAT && m_VtxDesc.Tex7Coord},
+	};
 	BitSet32 regs = {src_reg, dst_reg, scratch1, scratch2, scratch3, count_reg, skipped_reg, base_reg};
+	X64Reg reg = XMM2;
+	for (auto value : values)
+	{
+		if (value.needed && m_constants.find(value.ptr) == m_constants.end())
+		{
+			m_constants[value.ptr] = reg;
+			regs[reg + 16] = true;
+			reg = (X64Reg)(reg + 1);
+			if (reg > XMM15)
+				break;
+		}
+	}
+
 	regs &= ABI_ALL_CALLEE_SAVED;
 	ABI_PushRegistersAndAdjustStack(regs, 0);
 
@@ -464,14 +513,15 @@ void VertexLoaderX64::GenerateVertexLoader()
 
 	MOV(64, R(base_reg), R(ABI_PARAM4));
 
+	for (auto pair : m_constants)
+		MOVDQA(pair.second, MPIC(pair.first));
+
 	if (m_VtxDesc.Position & MASK_INDEXED)
 		XOR(32, R(skipped_reg), R(skipped_reg));
 
 	// If the m_constant_array_strides optimization failed,
 	// we need to reset the offsets.
 	m_src_ofs = m_dst_ofs = 0;
-
-	// TODO: load constants into registers outside the main loop
 
 	const u8* loop_start = GetCodePtr();
 
@@ -515,9 +565,6 @@ void VertexLoaderX64::GenerateVertexLoader()
 
 	if (m_VtxDesc.Normal)
 	{
-		static const u8 map[8] = { 7, 6, 15, 14 };
-		u8 scaling_exponent = map[m_VtxAttr.NormalFormat];
-
 		for (int i = 0; i < (m_VtxAttr.NormalElements ? 3 : 1); i++)
 		{
 			if (!i || m_VtxAttr.NormalIndex3)
@@ -527,7 +574,7 @@ void VertexLoaderX64::GenerateVertexLoader()
 				data.AddMemOffset(i * elem_size * 3);
 			}
 			data.AddMemOffset(ReadVertex(data, m_VtxDesc.Normal, m_VtxAttr.NormalFormat, 3, 3,
-			                             true, scaling_exponent, &m_native_vtx_decl.normals[i]));
+			                             true, normal_frac, &m_native_vtx_decl.normals[i]));
 		}
 
 		m_native_components |= VB_HAS_NRM0;
