@@ -139,6 +139,12 @@ static void GLAPIENTRY ErrorCallback( GLenum source, GLenum type, GLuint id, GLe
 	const char *s_source;
 	const char *s_type;
 
+	// Nvidia spams these warnings a lot, ignore them.
+	// 0x20004: "Usage warning: Generic vertex attribute array foo uses a pointer with a small value (bar). Is this intended to be used as an offset into a buffer object?"
+	// 0x20043: "Rasterization quality warning: A non-fullscreen clear caused a fallback from CSAA to MSAA."
+	if (id == 0x20004 || id == 0x20043)
+		return;
+
 	switch (source)
 	{
 		case GL_DEBUG_SOURCE_API_ARB:             s_source = "API"; break;
