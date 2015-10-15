@@ -192,7 +192,13 @@ private:
 
 VertexLoaderBase* VertexLoaderBase::CreateVertexLoader(const TVtxDesc& vtx_desc, const VAT& vtx_attr)
 {
-	VertexLoaderBase* loader;
+	VertexLoaderBase* loader = new VertexLoader(vtx_desc, vtx_attr);
+	if (not loader->m_native_vtx_decl.texcoords[1].enable)
+	{
+		loader->m_native_vtx_decl.texcoords[1].type = VAR_UNSIGNED_BYTE;
+		loader->m_native_vtx_decl.texcoords[1].offset = 0;
+	}
+	return loader;
 
 //#define COMPARE_VERTEXLOADERS
 
