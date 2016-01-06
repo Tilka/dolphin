@@ -101,7 +101,7 @@ void AppendListToString(std::string *dest)
 	for (const auto& map_entry : s_vertex_loader_map)
 	{
 		entry e;
-		map_entry.second->AppendToString(&e.text);
+		e.text = map_entry.second->GetName();
 		e.num_verts = map_entry.second->m_numLoadedVertices;
 		entries.push_back(e);
 		total_size += e.text.size() + 1;

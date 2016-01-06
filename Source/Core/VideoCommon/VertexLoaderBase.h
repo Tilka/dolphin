@@ -80,9 +80,7 @@ public:
 	virtual bool IsInitialized() = 0;
 
 	// For debugging / profiling
-	void AppendToString(std::string *dest) const;
-
-	virtual std::string GetName() const = 0;
+	std::string GetName() const;
 
 	// per loader public state
 	int m_VertexSize;      // number of bytes of a raw GC vertex
@@ -96,6 +94,7 @@ public:
 protected:
 	VertexLoaderBase(const TVtxDesc &vtx_desc, const VAT &vtx_attr);
 	void SetVAT(const VAT& vat);
+	virtual std::string GetImplementationName() const = 0;
 
 	// GC vertex format
 	TVtxAttr m_VtxAttr;  // VAT decoded into easy format

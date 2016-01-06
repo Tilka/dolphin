@@ -44,8 +44,7 @@ VertexLoaderX64::VertexLoaderX64(const TVtxDesc& vtx_desc, const VAT& vtx_att) :
 	GenerateVertexLoader();
 	WriteProtect();
 
-	std::string name;
-	AppendToString(&name);
+	std::string name = GetName();
 	JitRegister::Register(region, GetCodePtr(), name.c_str());
 }
 

@@ -74,12 +74,13 @@ void VertexLoaderBase::SetVAT(const VAT& vat)
 	m_VtxAttr.texCoord[7].Frac     = vat.g2.Tex7Frac;
 };
 
-void VertexLoaderBase::AppendToString(std::string *dest) const
+std::string VertexLoaderBase::GetName() const
 {
-	dest->reserve(250);
+	std::string dest;
+	dest.reserve(250);
 
-	dest->append(GetName());
-	dest->append(": ");
+	dest += GetImplementationName();
+	dest += ": ";
 
 	static const char *posMode[4] = {
 		"Inv",
@@ -94,14 +95,14 @@ void VertexLoaderBase::AppendToString(std::string *dest) const
 		"Inv", "Inv",
 	};
 
-	dest->append(StringFromFormat("%ib skin: %i P: %i %s-%s ",
+	dest += StringFromFormat("%ib skin: %i P: %i %s-%s ",
 		m_VertexSize, (u32)m_VtxDesc.PosMatIdx,
-		m_VtxAttr.PosElements ? 3 : 2, posMode[m_VtxDesc.Position], posFormats[m_VtxAttr.PosFormat]));
+		m_VtxAttr.PosElements ? 3 : 2, posMode[m_VtxDesc.Position], posFormats[m_VtxAttr.PosFormat]);
 
 	if (m_VtxDesc.Normal)
 	{
-		dest->append(StringFromFormat("Nrm: %i %s-%s ",
-			m_VtxAttr.NormalElements, posMode[m_VtxDesc.Normal], posFormats[m_VtxAttr.NormalFormat]));
+		dest += StringFromFormat("Nrm: %i %s-%s ",
+			m_VtxAttr.NormalElements, posMode[m_VtxDesc.Normal], posFormats[m_VtxAttr.NormalFormat]);
 	}
 
 	u64 color_mode[2] = { m_VtxDesc.Color0, m_VtxDesc.Color1 };
@@ -109,7 +110,7 @@ void VertexLoaderBase::AppendToString(std::string *dest) const
 	{
 		if (color_mode[i])
 		{
-			dest->append(StringFromFormat("C%i: %i %s-%s ", i, m_VtxAttr.color[i].Elements, posMode[color_mode[i]], colorFormat[m_VtxAttr.color[i].Comp]));
+			dest += StringFromFormat("C%i: %i %s-%s ", i, m_VtxAttr.color[i].Elements, posMode[color_mode[i]], colorFormat[m_VtxAttr.color[i].Comp]);
 		}
 	}
 	u64 tex_mode[8] = {
@@ -120,11 +121,12 @@ void VertexLoaderBase::AppendToString(std::string *dest) const
 	{
 		if (tex_mode[i])
 		{
-			dest->append(StringFromFormat("T%i: %i %s-%s ",
-				i, m_VtxAttr.texCoord[i].Elements, posMode[tex_mode[i]], posFormats[m_VtxAttr.texCoord[i].Format]));
+			dest += StringFromFormat("T%i: %i %s-%s ",
+				i, m_VtxAttr.texCoord[i].Elements, posMode[tex_mode[i]], posFormats[m_VtxAttr.texCoord[i].Format]);
 		}
 	}
-	dest->append(StringFromFormat(" - %i v", m_numLoadedVertices));
+	dest += StringFromFormat(" - %i v", m_numLoadedVertices);
+	return dest;
 }
 
 // a hacky implementation to compare two vertex loaders
@@ -182,7 +184,7 @@ public:
 		m_numLoadedVertices += count;
 		return count_a;
 	}
-	std::string GetName() const override { return "CompareLoader"; }
+	std::string GetImplementationName() const override { return "CompareLoader"; }
 	bool IsInitialized() override { return m_initialized; }
 
 private:
