@@ -208,6 +208,100 @@ void CommonAsmRoutines::GenMfcr()
 	JitRegister::Register(start, GetCodePtr(), "JIT_Mfcr");
 }
 
+alignas(16) static const u64 psDoubleExp[2]  = {0x7FF0000000000000ULL, 0};
+alignas(16) static const u64 psDoubleFrac[2] = {0x000FFFFFFFFFFFFFULL, 0};
+alignas(16) static const u64 psDoubleNoSign[2] = {0x7FFFFFFFFFFFFFFFULL, 0};
+
+void CommonAsmRoutines::GenFPRF()
+{
+	const void* start = GetCodePtr();
+
+	AND(32, PPCSTATE(fpscr), Imm32(~FPRF_MASK));
+
+	FixupBranch continue1, continue2, continue3, continue4;
+	if (cpu_info.bSSE4_1)
+	{
+		MOVQ_xmm(R(RSCRATCH), XMM0);
+		SHR(64, R(RSCRATCH), Imm8(63)); // Get the sign bit; almost all the branches need it.
+		PTEST(XMM0, M(psDoubleExp));
+		FixupBranch maxExponent = J_CC(CC_C);
+		FixupBranch zeroExponent = J_CC(CC_Z);
+
+		// Nice normalized number: sign ? PPC_FPCLASS_NN : PPC_FPCLASS_PN;
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NN - MathUtil::PPC_FPCLASS_PN, MathUtil::PPC_FPCLASS_PN));
+		continue1 = J();
+
+		SetJumpTarget(maxExponent);
+		PTEST(XMM0, M(psDoubleFrac));
+		FixupBranch notNAN = J_CC(CC_Z);
+
+		// Max exponent + mantissa: PPC_FPCLASS_QNAN
+		MOV(32, R(RSCRATCH), Imm32(MathUtil::PPC_FPCLASS_QNAN));
+		continue2 = J();
+
+		// Max exponent + no mantissa: sign ? PPC_FPCLASS_NINF : PPC_FPCLASS_PINF;
+		SetJumpTarget(notNAN);
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NINF - MathUtil::PPC_FPCLASS_PINF, MathUtil::PPC_FPCLASS_PINF));
+		continue3 = J();
+
+		SetJumpTarget(zeroExponent);
+		PTEST(XMM0, R(XMM0));
+		FixupBranch zero = J_CC(CC_Z);
+
+		// No exponent + mantissa: sign ? PPC_FPCLASS_ND : PPC_FPCLASS_PD;
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_ND - MathUtil::PPC_FPCLASS_PD, MathUtil::PPC_FPCLASS_PD));
+		continue4 = J();
+
+		// Zero: sign ? PPC_FPCLASS_NZ : PPC_FPCLASS_PZ;
+		SetJumpTarget(zero);
+		SHL(32, R(RSCRATCH), Imm8(4));
+		ADD(32, R(RSCRATCH), Imm8(MathUtil::PPC_FPCLASS_PZ));
+	}
+	else
+	{
+		MOVQ_xmm(R(RSCRATCH), XMM0);
+		TEST(64, R(RSCRATCH), M(psDoubleExp));
+		FixupBranch zeroExponent = J_CC(CC_Z);
+		AND(64, R(RSCRATCH), M(psDoubleNoSign));
+		CMP(64, R(RSCRATCH), M(psDoubleExp));
+		FixupBranch nan = J_CC(CC_G); // This works because if the sign bit is set, RSCRATCH is negative
+		FixupBranch infinity = J_CC(CC_E);
+		MOVQ_xmm(R(RSCRATCH), XMM0);
+		SHR(64, R(RSCRATCH), Imm8(63));
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NN - MathUtil::PPC_FPCLASS_PN, MathUtil::PPC_FPCLASS_PN));
+		continue1 = J();
+		SetJumpTarget(nan);
+		MOVQ_xmm(R(RSCRATCH), XMM0);
+		SHR(64, R(RSCRATCH), Imm8(63));
+		MOV(32, R(RSCRATCH), Imm32(MathUtil::PPC_FPCLASS_QNAN));
+		continue2 = J();
+		SetJumpTarget(infinity);
+		MOVQ_xmm(R(RSCRATCH), XMM0);
+		SHR(64, R(RSCRATCH), Imm8(63));
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NINF - MathUtil::PPC_FPCLASS_PINF, MathUtil::PPC_FPCLASS_PINF));
+		continue3 = J();
+		SetJumpTarget(zeroExponent);
+		TEST(64, R(RSCRATCH), R(RSCRATCH));
+		FixupBranch zero = J_CC(CC_Z);
+		SHR(64, R(RSCRATCH), Imm8(63));
+		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_ND - MathUtil::PPC_FPCLASS_PD, MathUtil::PPC_FPCLASS_PD));
+		continue4 = J();
+		SetJumpTarget(zero);
+		SHR(64, R(RSCRATCH), Imm8(63));
+		SHL(32, R(RSCRATCH), Imm8(4));
+		ADD(32, R(RSCRATCH), Imm8(MathUtil::PPC_FPCLASS_PZ));
+	}
+
+	SetJumpTarget(continue1);
+	SetJumpTarget(continue2);
+	SetJumpTarget(continue3);
+	SetJumpTarget(continue4);
+	SHL(32, R(RSCRATCH), Imm8(FPRF_SHIFT));
+	OR(32, PPCSTATE(fpscr), R(RSCRATCH));
+	RET();
+
+	JitRegister::Register(start, GetCodePtr(), "JIT_FPRF");
+}
 // Safe + Fast Quantizers, originally from JITIL by magumagu
 alignas(16) static const float m_65535[4] = {65535.0f, 65535.0f, 65535.0f, 65535.0f};
 alignas(16) static const float m_32767 = 32767.0f;

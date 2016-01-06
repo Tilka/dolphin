@@ -19,4 +19,5 @@ public:
 	void GenFrsqrte();
 	void GenFres();
 	void GenMfcr();
+	void GenFPRF();
 };

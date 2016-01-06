@@ -31,6 +31,7 @@ public:
 	const u8 *frsqrte;
 	const u8 *fres;
 	const u8 *mfcr;
+	const u8 *fprf;
 
 	// In: array index: GQR to use.
 	// In: ECX: Address to read from.

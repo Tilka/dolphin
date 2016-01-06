@@ -899,10 +899,6 @@ void EmuCodeBlock::ConvertSingleToDouble(X64Reg dst, X64Reg src, bool src_is_gpr
 	MOVDDUP(dst, R(dst));
 }
 
-alignas(16) static const u64 psDoubleExp[2]  = {0x7FF0000000000000ULL, 0};
-alignas(16) static const u64 psDoubleFrac[2] = {0x000FFFFFFFFFFFFFULL, 0};
-alignas(16) static const u64 psDoubleNoSign[2] = {0x7FFFFFFFFFFFFFFFULL, 0};
-
 // TODO: it might be faster to handle FPRF in the same way as CR is currently handled for integer, storing
 // the result of each floating point op and calculating it when needed. This is trickier than for integers
 // though, because there's 32 possible FPRF bit combinations but only 9 categories of floating point values,
@@ -911,88 +907,8 @@ alignas(16) static const u64 psDoubleNoSign[2] = {0x7FFFFFFFFFFFFFFFULL, 0};
 // quite that necessary.
 void EmuCodeBlock::SetFPRF(Gen::X64Reg xmm)
 {
-	AND(32, PPCSTATE(fpscr), Imm32(~FPRF_MASK));
-
-	FixupBranch continue1, continue2, continue3, continue4;
-	if (cpu_info.bSSE4_1)
-	{
-		MOVQ_xmm(R(RSCRATCH), xmm);
-		SHR(64, R(RSCRATCH), Imm8(63)); // Get the sign bit; almost all the branches need it.
-		PTEST(xmm, M(psDoubleExp));
-		FixupBranch maxExponent = J_CC(CC_C);
-		FixupBranch zeroExponent = J_CC(CC_Z);
-
-		// Nice normalized number: sign ? PPC_FPCLASS_NN : PPC_FPCLASS_PN;
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NN - MathUtil::PPC_FPCLASS_PN, MathUtil::PPC_FPCLASS_PN));
-		continue1 = J();
-
-		SetJumpTarget(maxExponent);
-		PTEST(xmm, M(psDoubleFrac));
-		FixupBranch notNAN = J_CC(CC_Z);
-
-		// Max exponent + mantissa: PPC_FPCLASS_QNAN
-		MOV(32, R(RSCRATCH), Imm32(MathUtil::PPC_FPCLASS_QNAN));
-		continue2 = J();
-
-		// Max exponent + no mantissa: sign ? PPC_FPCLASS_NINF : PPC_FPCLASS_PINF;
-		SetJumpTarget(notNAN);
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NINF - MathUtil::PPC_FPCLASS_PINF, MathUtil::PPC_FPCLASS_PINF));
-		continue3 = J();
-
-		SetJumpTarget(zeroExponent);
-		PTEST(xmm, R(xmm));
-		FixupBranch zero = J_CC(CC_Z);
-
-		// No exponent + mantissa: sign ? PPC_FPCLASS_ND : PPC_FPCLASS_PD;
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_ND - MathUtil::PPC_FPCLASS_PD, MathUtil::PPC_FPCLASS_PD));
-		continue4 = J();
-
-		// Zero: sign ? PPC_FPCLASS_NZ : PPC_FPCLASS_PZ;
-		SetJumpTarget(zero);
-		SHL(32, R(RSCRATCH), Imm8(4));
-		ADD(32, R(RSCRATCH), Imm8(MathUtil::PPC_FPCLASS_PZ));
-	}
-	else
-	{
-		MOVQ_xmm(R(RSCRATCH), xmm);
-		TEST(64, R(RSCRATCH), M(psDoubleExp));
-		FixupBranch zeroExponent = J_CC(CC_Z);
-		AND(64, R(RSCRATCH), M(psDoubleNoSign));
-		CMP(64, R(RSCRATCH), M(psDoubleExp));
-		FixupBranch nan = J_CC(CC_G); // This works because if the sign bit is set, RSCRATCH is negative
-		FixupBranch infinity = J_CC(CC_E);
-		MOVQ_xmm(R(RSCRATCH), xmm);
-		SHR(64, R(RSCRATCH), Imm8(63));
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NN - MathUtil::PPC_FPCLASS_PN, MathUtil::PPC_FPCLASS_PN));
-		continue1 = J();
-		SetJumpTarget(nan);
-		MOVQ_xmm(R(RSCRATCH), xmm);
-		SHR(64, R(RSCRATCH), Imm8(63));
-		MOV(32, R(RSCRATCH), Imm32(MathUtil::PPC_FPCLASS_QNAN));
-		continue2 = J();
-		SetJumpTarget(infinity);
-		MOVQ_xmm(R(RSCRATCH), xmm);
-		SHR(64, R(RSCRATCH), Imm8(63));
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_NINF - MathUtil::PPC_FPCLASS_PINF, MathUtil::PPC_FPCLASS_PINF));
-		continue3 = J();
-		SetJumpTarget(zeroExponent);
-		TEST(64, R(RSCRATCH), R(RSCRATCH));
-		FixupBranch zero = J_CC(CC_Z);
-		SHR(64, R(RSCRATCH), Imm8(63));
-		LEA(32, RSCRATCH, MScaled(RSCRATCH, MathUtil::PPC_FPCLASS_ND - MathUtil::PPC_FPCLASS_PD, MathUtil::PPC_FPCLASS_PD));
-		continue4 = J();
-		SetJumpTarget(zero);
-		SHR(64, R(RSCRATCH), Imm8(63));
-		SHL(32, R(RSCRATCH), Imm8(4));
-		ADD(32, R(RSCRATCH), Imm8(MathUtil::PPC_FPCLASS_PZ));
-	}
-
-	SetJumpTarget(continue1);
-	SetJumpTarget(continue2);
-	SetJumpTarget(continue3);
-	SetJumpTarget(continue4);
-	SHL(32, R(RSCRATCH), Imm8(FPRF_SHIFT));
-	OR(32, PPCSTATE(fpscr), R(RSCRATCH));
+	MOVUPD(R(XMM0), xmm);
+	CALL(jit->GetAsmRoutines()->fprf);
 }
 
 void EmuCodeBlock::JitGetAndClearCAOV(bool oe)
