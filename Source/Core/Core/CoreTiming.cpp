@@ -11,6 +11,7 @@
 #include "Common/FifoQueue.h"
 #include "Common/StringUtil.h"
 #include "Common/Thread.h"
+#include "Common/VTune.h"
 
 #include "Core/ConfigManager.h"
 #include "Core/Core.h"
@@ -28,6 +29,7 @@ struct EventType
 {
 	TimedCallback callback;
 	std::string name;
+	__itt_string_handle* vtune_task;
 };
 
 static std::vector<EventType> event_types;
@@ -103,6 +105,7 @@ int RegisterEvent(const std::string& name, TimedCallback callback)
 	EventType type;
 	type.name = name;
 	type.callback = callback;
+	type.vtune_task = __itt_string_handle_create(name.c_str());
 
 	// check for existing type with same name.
 	// we want event type names to remain unique so that we can use them for serialization.
@@ -383,6 +386,8 @@ void MoveEvents()
 	}
 }
 
+static __itt_domain* coretiming_domain = __itt_domain_create("CoreTiming");
+
 void Advance()
 {
 	MoveEvents();
@@ -398,7 +403,11 @@ void Advance()
 		//             event_types[first->type].name ? event_types[first->type].name : "?", (u64)globalTimer, (u64)first->time);
 		Event* evt = first;
 		first = first->next;
-		event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
+		EventType& cb = event_types[evt->type];
+		{
+			VTuneTask t(coretiming_domain, cb.vtune_task);
+			cb.callback(evt->userdata, (int)(globalTimer - evt->time));
+		}
 		FreeEvent(evt);
 	}
 
