@@ -9,12 +9,17 @@
 
 #include "Common/GekkoDisassembler.h"
 #include "Common/StringUtil.h"
+#include "Common/VTune.h"
 #include "Core/PowerPC/JitCommon/JitBase.h"
 
 JitBase *jit;
 
+static __itt_domain* vtune_domain = __itt_domain_create("PowerPC");
+static __itt_string_handle* vtune_task = __itt_string_handle_create("Jit");
+
 void Jit(u32 em_address)
 {
+	VTuneTask t(vtune_domain, vtune_task);
 	jit->Jit(em_address);
 }
 
