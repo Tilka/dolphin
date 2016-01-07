@@ -8,6 +8,7 @@
 #include "Common/Common.h"
 #include "Common/MathUtil.h"
 #include "Common/StringUtil.h"
+#include "Common/VTune.h"
 
 #include "VideoBackends/OGL/ProgramShaderCache.h"
 #include "VideoBackends/OGL/Render.h"
@@ -252,8 +253,13 @@ SHADER* ProgramShaderCache::SetShader(DSTALPHA_MODE dstAlphaMode, u32 primitive_
 	return &last_entry->shader;
 }
 
+static __itt_domain* vtune_domain = __itt_domain_create("OpenGL");
+static __itt_string_handle* vtune_task = __itt_string_handle_create("CompileShader");
+
 bool ProgramShaderCache::CompileShader(SHADER& shader, const std::string& vcode, const std::string& pcode, const std::string& gcode)
 {
+	VTuneTask t(vtune_domain, vtune_task);
+
 	GLuint vsid = CompileSingleShader(GL_VERTEX_SHADER, vcode);
 	GLuint psid = CompileSingleShader(GL_FRAGMENT_SHADER, pcode);
 
