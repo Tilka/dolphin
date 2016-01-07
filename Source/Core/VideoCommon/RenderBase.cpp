@@ -21,6 +21,7 @@
 #include "Common/Profiler.h"
 #include "Common/StringUtil.h"
 #include "Common/Timer.h"
+#include "Common/VTune.h"
 
 #include "Core/ConfigManager.h"
 #include "Core/Core.h"
@@ -581,8 +582,11 @@ void Renderer::RecordVideoMemory()
 	FifoRecorder::GetInstance().SetVideoMemory(bpmem_ptr, cpmem, xfmem_ptr, xfregs_ptr, xfregs_size);
 }
 
+static __itt_domain* vtune_domain = __itt_domain_create("Renderer");
+
 void Renderer::Swap(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, const EFBRectangle& rc, float Gamma)
 {
+	__itt_frame_end_v3(vtune_domain, nullptr);
 	// TODO: merge more generic parts into VideoCommon
 	g_renderer->SwapImpl(xfbAddr, fbWidth, fbStride, fbHeight, rc, Gamma);
 
@@ -599,6 +603,7 @@ void Renderer::Swap(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, const 
 
 	Core::Callback_VideoCopiedToXFB(XFBWrited || (g_ActiveConfig.bUseXFB && g_ActiveConfig.bUseRealXFB));
 	XFBWrited = false;
+	__itt_frame_begin_v3(vtune_domain, nullptr);
 }
 
 void Renderer::FlipImageData(u8* data, int w, int h, int pixel_width)
