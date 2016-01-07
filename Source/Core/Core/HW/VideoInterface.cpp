@@ -8,6 +8,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/MathUtil.h"
 #include "Common/StringUtil.h"
+#include "Common/VTune.h"
 
 #include "Core/ConfigManager.h"
 #include "Core/Core.h"
@@ -633,6 +634,8 @@ u32 GetTicksPerField()
 	return GetTicksPerEvenField();
 }
 
+static __itt_domain* vtune_domain = __itt_domain_create("VideoInterface");
+
 static void BeginField(FieldType field)
 {
 	bool interlaced_xfb = ((m_PictureConfiguration.STD / m_PictureConfiguration.WPL)==2);
@@ -691,6 +694,7 @@ static void BeginField(FieldType field)
 			"HorizScaling: %04x | fbwidth %d | %u | %u",
 			m_HorizontalScaling.Hex, m_FBWidth.Hex, GetTicksPerEvenField(), GetTicksPerOddField());
 
+	__itt_frame_begin_v3(vtune_domain, nullptr);
 	if (xfbAddr)
 		g_video_backend->Video_BeginField(xfbAddr, fbWidth, fbStride, fbHeight);
 }
@@ -698,6 +702,7 @@ static void BeginField(FieldType field)
 static void EndField()
 {
 	g_video_backend->Video_EndField();
+	__itt_frame_end_v3(vtune_domain, nullptr);
 	Core::VideoThrottle();
 }
 
