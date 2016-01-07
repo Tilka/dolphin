@@ -10,6 +10,7 @@
 
 #include "Common/Event.h"
 #include "Common/Flag.h"
+#include "Common/VTune.h"
 
 namespace Common
 {
@@ -21,14 +22,16 @@ namespace Common
 class BlockingLoop
 {
 public:
-	BlockingLoop()
+	BlockingLoop(std::string name)
 	{
 		m_stopped.Set();
+		__itt_sync_create(this, "BlockingLoop", name.c_str(), 0);
 	}
 
 	~BlockingLoop()
 	{
 		Stop();
+		__itt_sync_destroy(this);
 	}
 
 	// Triggers to rerun the payload of the Run() function at least once again.
@@ -53,9 +56,13 @@ public:
 	// If stopped, this returns immediately.
 	void Wait()
 	{
+		__itt_sync_prepare(this);
 		// already done
 		if (IsDone())
+		{
+			__itt_sync_acquired(this);
 			return;
+		}
 
 		// notifying this event will only wake up one thread, so use a mutex here to
 		// allow only one waiting thread. And in this way, we get an event free wakeup
@@ -71,6 +78,8 @@ public:
 		// As we wanted to wait for the other thread, there is likely no work remaining.
 		// So there is no need for a busy loop any more.
 		m_may_sleep.Set();
+
+		__itt_sync_acquired(this);
 	}
 
 	// Half start the worker.
