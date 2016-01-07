@@ -9,6 +9,7 @@
 #include <string>
 
 #include "Common/CommonTypes.h"
+#include "Common/VTune.h"
 
 #include "VideoCommon/CPMemory.h"
 #include "VideoCommon/DataReader.h"
@@ -90,6 +91,8 @@ public:
 	// used by VertexLoaderManager
 	NativeVertexFormat* m_native_vertex_format;
 	int m_numLoadedVertices;
+
+	__itt_string_handle* vtune_task;
 
 protected:
 	VertexLoaderBase(const TVtxDesc &vtx_desc, const VAT &vtx_attr);

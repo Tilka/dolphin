@@ -46,6 +46,7 @@ VertexLoaderX64::VertexLoaderX64(const TVtxDesc& vtx_desc, const VAT& vtx_att) :
 
 	std::string name = GetName();
 	JitRegister::Register(region, GetCodePtr(), name.c_str());
+	vtune_task = __itt_string_handle_create(name.c_str());
 }
 
 OpArg VertexLoaderX64::GetVertexAddr(int array, u64 attribute)

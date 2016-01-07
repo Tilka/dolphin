@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Common/CommonFuncs.h"
+#include "Common/VTune.h"
 #include "Core/HW/Memmap.h"
 
 #include "VideoCommon/BPMemory.h"
@@ -170,6 +171,8 @@ static VertexLoaderBase* RefreshLoader(int vtx_attr_group, bool preprocess = fal
 	return loader;
 }
 
+static __itt_domain* vtune_domain = __itt_domain_create("VertexLoader");
+
 int RunVertices(int vtx_attr_group, int primitive, int count, DataReader src, bool skip_drawing, bool is_preprocess)
 {
 	if (!count)
@@ -200,7 +203,10 @@ int RunVertices(int vtx_attr_group, int primitive, int count, DataReader src, bo
 	DataReader dst = VertexManagerBase::PrepareForAdditionalData(primitive, count,
 			loader->m_native_vtx_decl.stride, cullall);
 
-	count = loader->RunVertices(src, dst, count);
+	{
+		VTuneTask t(vtune_domain, loader->vtune_task);
+		count = loader->RunVertices(src, dst, count);
+	}
 
 	IndexGenerator::AddIndices(primitive, count);
 
