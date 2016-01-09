@@ -367,6 +367,8 @@ if(VTUNE)
 		"${VTUNE_DIR}/lib64/libjitprofiling.a"
 		"${VTUNE_DIR}/lib64/libittnotify.a"
 	)
+else()
+	include_directories(Externals/ittnotify)
 endif(VTUNE)
 
 if(ANDROID)

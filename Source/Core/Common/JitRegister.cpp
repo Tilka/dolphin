@@ -13,6 +13,7 @@
 #include "Common/FileUtil.h"
 #include "Common/JitRegister.h"
 #include "Common/StringUtil.h"
+#include "Common/VTune.h"
 
 #ifdef _WIN32
 #include <process.h>
@@ -22,11 +23,6 @@
 
 #if defined USE_OPROFILE && USE_OPROFILE
 #include <opagent.h>
-#endif
-
-#if defined USE_VTUNE
-#include <jitprofiling.h>
-#pragma comment(lib, "jitprofiling.lib")
 #endif
 
 #if defined USE_OPROFILE && USE_OPROFILE
