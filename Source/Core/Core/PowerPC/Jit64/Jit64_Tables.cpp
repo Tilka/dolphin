@@ -71,7 +71,7 @@ static GekkoOPTemplate primarytable[] =
 	{45, &Jit64::stX},                   // sthu
 	{36, &Jit64::stX},                   // stw
 	{37, &Jit64::stX},                   // stwu
-	{38, &Jit64::stX},                   // stb
+	{38, &Jit64::FallBackToInterpreter}, // stb
 	{39, &Jit64::stX},                   // stbu
 
 	{46, &Jit64::lmw},                   // lmw

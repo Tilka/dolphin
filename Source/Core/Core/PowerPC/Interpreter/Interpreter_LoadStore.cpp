@@ -7,6 +7,7 @@
 
 #include "Core/ConfigManager.h"
 #include "Core/HW/DSP.h"
+#include "Core/HW/Memmap.h"
 #include "Core/PowerPC/JitInterface.h"
 #include "Core/PowerPC/PowerPC.h"
 #include "Core/PowerPC/Interpreter/Interpreter.h"
@@ -238,7 +239,17 @@ void Interpreter::lwzu(UGeckoInstruction _inst)
 
 void Interpreter::stb(UGeckoInstruction _inst)
 {
-	PowerPC::Write_U8((u8)rGPR[_inst.RS], Helper_Get_EA(_inst));
+	u32 ea = Helper_Get_EA(_inst);
+	if ((ea & ~0x03FFFFFF) == 0xD0000000)
+	{
+		u8 b = (u8)rGPR[_inst.RS];
+		ea &= 0x0FFFFFFF;
+		*(u64*)&Memory::m_pEXRAM[ea & ~7] = 0;
+		Memory::m_pEXRAM[ea] = b;
+		Memory::m_pEXRAM[ea ^ 4] = b;
+	}
+	else
+		PowerPC::Write_U8((u8)rGPR[_inst.RS], ea);
 }
 
 void Interpreter::stbu(UGeckoInstruction _inst)
