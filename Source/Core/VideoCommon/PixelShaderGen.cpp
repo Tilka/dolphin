@@ -290,9 +290,7 @@ static T GeneratePixelShader(DSTALPHA_MODE dstAlphaMode, API_TYPE ApiType)
 	                            // We can't allow early_ztest for zfreeze because depth is overridden per-pixel.
 	                            // This means it's impossible for zcomploc to be emulated on a zfrozen polygon.
 	                            && !(bpmem.zmode.testenable && bpmem.genMode.zfreeze);
-	const bool per_pixel_depth = (bpmem.ztex2.op != ZTEXTURE_DISABLE && bpmem.UseLateDepthTest())
-	                             || (!g_ActiveConfig.bFastDepthCalc && bpmem.zmode.testenable && !forced_early_z)
-	                             || (bpmem.zmode.testenable && bpmem.genMode.zfreeze);
+	const bool per_pixel_depth = false;
 
 	if (forced_early_z)
 	{
