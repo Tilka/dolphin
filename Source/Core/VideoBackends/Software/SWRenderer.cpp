@@ -6,6 +6,7 @@
 #include <atomic>
 #include <mutex>
 #include <string>
+#include <x86intrin.h>
 
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
@@ -25,20 +26,11 @@
 #include "VideoCommon/OnScreenDisplay.h"
 #include "VideoCommon/VideoConfig.h"
 
-static u8* s_xfbColorTexture[2];
+alignas(32) static u8 s_xfbColorTexture[2][MAX_XFB_WIDTH * MAX_XFB_HEIGHT * 4];
 static int s_currentColorTexture = 0;
-
-SWRenderer::~SWRenderer()
-{
-  delete[] s_xfbColorTexture[0];
-  delete[] s_xfbColorTexture[1];
-}
 
 void SWRenderer::Init()
 {
-  s_xfbColorTexture[0] = new u8[MAX_XFB_WIDTH * MAX_XFB_HEIGHT * 4];
-  s_xfbColorTexture[1] = new u8[MAX_XFB_WIDTH * MAX_XFB_HEIGHT * 4];
-
   s_currentColorTexture = 0;
 }
 
@@ -68,7 +60,9 @@ void SWRenderer::SwapColorTexture()
   s_currentColorTexture = !s_currentColorTexture;
 }
 
-void SWRenderer::UpdateColorTexture(EfbInterface::yuv422_packed* xfb, u32 fbWidth, u32 fbHeight)
+[[gnu::target("avx2")]]  // Haswell
+    void
+    SWRenderer::UpdateColorTexture(EfbInterface::yuv422_packed* xfb, u32 fbWidth, u32 fbHeight)
 {
   if (fbWidth * fbHeight > MAX_XFB_WIDTH * MAX_XFB_HEIGHT)
   {
@@ -76,34 +70,91 @@ void SWRenderer::UpdateColorTexture(EfbInterface::yuv422_packed* xfb, u32 fbWidt
     return;
   }
 
-  u32 offset = 0;
-  u8* TexturePointer = GetNextColorTexture();
+  auto src = (__m256i*)xfb;
+  auto dst = (__m256i*)GetNextColorTexture();
+
+  auto src128 = (__m128i*)xfb;
+  auto dst128 = (__m128i*)GetNextColorTexture();
 
   for (u16 y = 0; y < fbHeight; y++)
   {
-    for (u16 x = 0; x < fbWidth; x += 2)
+#if 1
+    // 11.3 cycles for 16 pixels on Haswell
+    for (u16 x = 0; x < fbWidth; x += 16)
     {
-      // We do this one color sample (aka 2 RGB pixles) at a time
-      int Y1 = xfb[x].Y - 16;
-      int Y2 = xfb[x + 1].Y - 16;
-      int U = int(xfb[x].UV) - 128;
-      int V = int(xfb[x + 1].UV) - 128;
-
-      // We do the inverse BT.601 conversion for YCbCr to RGB
-      // http://www.equasys.de/colorconversion.html#YCbCr-RGBColorFormatConversion
-      TexturePointer[offset++] = MathUtil::Clamp(int(1.164f * Y1 + 1.596f * V), 0, 255);
-      TexturePointer[offset++] =
-          MathUtil::Clamp(int(1.164f * Y1 - 0.392f * U - 0.813f * V), 0, 255);
-      TexturePointer[offset++] = MathUtil::Clamp(int(1.164f * Y1 + 2.017f * U), 0, 255);
-      TexturePointer[offset++] = 255;
-
-      TexturePointer[offset++] = MathUtil::Clamp(int(1.164f * Y2 + 1.596f * V), 0, 255);
-      TexturePointer[offset++] =
-          MathUtil::Clamp(int(1.164f * Y2 - 0.392f * U - 0.813f * V), 0, 255);
-      TexturePointer[offset++] = MathUtil::Clamp(int(1.164f * Y2 + 2.017f * U), 0, 255);
-      TexturePointer[offset++] = 255;
+      auto yuv = _mm256_load_si256(src++);
+      auto yy = _mm256_shuffle_epi8(yuv, _mm256_set_epi64x(0x0E0E0C0C0A0A0808, 0x0606040402020000,
+                                                           0x0E0E0C0C0A0A0808, 0x0606040402020000));
+      auto uv = _mm256_shuffle_epi8(yuv, _mm256_set_epi64x(0x0F0D0F0D0B090B09, 0x0705070503010301,
+                                                           0x0F0D0F0D0B090B09, 0x0705070503010301));
+      auto r = _mm256_maddubs_epi16(uv, _mm256_set1_epi16((-102 * 256) | 0));
+      auto g = _mm256_maddubs_epi16(uv, _mm256_set1_epi16((52 * 256) | 25));
+      auto b = _mm256_maddubs_epi16(uv, _mm256_set1_epi16((0 * 256) | (-128 & 0xFF)));
+      auto a = _mm256_set1_epi8(-1);
+      r = _mm256_sub_epi16(_mm256_set1_epi16(-102 * 128 - 1160), r);
+      g = _mm256_sub_epi16(_mm256_set1_epi16(25 * 128 + 52 * 128 - 1160), g);
+      b = _mm256_sub_epi16(_mm256_set1_epi16(-128 * 128 - 1160), b);
+      yy = _mm256_mulhi_epu16(yy, _mm256_set1_epi16(18997));
+      r = _mm256_add_epi16(r, yy);
+      g = _mm256_add_epi16(g, yy);
+      b = _mm256_add_epi16(b, yy);
+      r = _mm256_srai_epi16(r, IntLog2(64));
+      g = _mm256_srai_epi16(g, IntLog2(64));
+      b = _mm256_srai_epi16(b, IntLog2(64));
+      r = _mm256_packus_epi16(r, r);
+      g = _mm256_packus_epi16(g, g);
+      b = _mm256_packus_epi16(b, b);
+      auto lo = _mm256_unpacklo_epi8(r, g);
+      auto hi = _mm256_unpacklo_epi8(b, a);
+      lo = _mm256_permute4x64_epi64(lo, _MM_SHUFFLE(3, 1, 2, 0));
+      hi = _mm256_permute4x64_epi64(hi, _MM_SHUFFLE(3, 1, 2, 0));
+      _mm256_store_si256(dst++, _mm256_unpacklo_epi16(lo, hi));
+      _mm256_store_si256(dst++, _mm256_unpackhi_epi16(lo, hi));
     }
-    xfb += fbWidth;
+#else
+    // SSE2
+    for (u16 x = 0; x < fbWidth; x += 8)
+    {
+      auto yuv422 = _mm_load_si128(src128++);
+      __m128i arr[8];
+      auto zero = _mm_setzero_si128();
+      auto lo = _mm_unpacklo_epi8(yuv422, zero);
+      auto hi = _mm_unpackhi_epi8(yuv422, zero);
+      __m128i expanded[4] = {
+          _mm_unpacklo_epi16(lo, zero), _mm_unpackhi_epi16(lo, zero), _mm_unpacklo_epi16(hi, zero),
+          _mm_unpackhi_epi16(hi, zero),
+      };
+      for (int i = 0; i < 4; i++)
+      {
+        auto cvt = _mm_cvtepi32_ps(expanded[i]);
+
+        auto y1 = _mm_permute_ps(cvt, _MM_SHUFFLE(0, 0, 0, 0));
+        auto uu = _mm_permute_ps(cvt, _MM_SHUFFLE(1, 1, 1, 1));
+        auto y2 = _mm_permute_ps(cvt, _MM_SHUFFLE(2, 2, 2, 2));
+        auto vv = _mm_permute_ps(cvt, _MM_SHUFFLE(3, 3, 3, 3));
+
+        vv = _mm_mul_ps(vv, _mm_set_ps(0, 0, -0.813f, 1.596f));
+        uu = _mm_mul_ps(uu, _mm_set_ps(0, 2.017f, -0.392f, 0));
+        y1 = _mm_mul_ps(y1, _mm_set1_ps(1.164f));
+        y2 = _mm_mul_ps(y2, _mm_set1_ps(1.164f));
+        vv = _mm_add_ps(vv, _mm_set_ps(255, -276.836f, 135.576f, -222.921f));
+        uu = _mm_add_ps(uu, vv);
+        y1 = _mm_add_ps(y1, uu);
+        y2 = _mm_add_ps(y2, uu);
+
+        arr[2 * i + 0] = _mm_cvtps_epi32(y1);
+        arr[2 * i + 1] = _mm_cvtps_epi32(y2);
+      }
+      arr[0] = _mm_packs_epi32(arr[0], arr[1]);
+      arr[1] = _mm_packs_epi32(arr[2], arr[3]);
+      arr[2] = _mm_packs_epi32(arr[4], arr[5]);
+      arr[3] = _mm_packs_epi32(arr[6], arr[7]);
+      arr[0] = _mm_packus_epi16(arr[0], arr[1]);
+      arr[1] = _mm_packus_epi16(arr[2], arr[3]);
+      _mm_store_si128(dst128++, arr[0]);
+      _mm_store_si128(dst128++, arr[1]);
+    }
+#endif
   }
   SwapColorTexture();
 }

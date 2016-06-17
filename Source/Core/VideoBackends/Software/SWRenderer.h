@@ -14,8 +14,6 @@
 class SWRenderer : public Renderer
 {
 public:
-  ~SWRenderer() override;
-
   static void Init();
   static void Shutdown();
 
