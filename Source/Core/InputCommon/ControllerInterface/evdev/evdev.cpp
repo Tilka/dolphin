@@ -32,6 +32,9 @@ static int s_wakeup_eventfd;
 // sysfs is not stable, so this is probably the easiest way to get a name for a node.
 static std::map<std::string, std::string> s_devnode_name_map;
 
+// We keep unneeded file descriptors around and close() them all in one go (faster).
+static std::vector<int> s_fds_to_close;
+
 static std::string GetName(const std::string& devnode)
 {
   int fd = open(devnode.c_str(), O_RDWR | O_NONBLOCK);
@@ -39,12 +42,12 @@ static std::string GetName(const std::string& devnode)
   int ret = libevdev_new_from_fd(fd, &dev);
   if (ret != 0)
   {
-    close(fd);
+    s_fds_to_close.push_back(fd);
     return std::string();
   }
   std::string res = StripSpaces(libevdev_get_name(dev));
   libevdev_free(dev);
-  close(fd);
+  s_fds_to_close.push_back(fd);
   return res;
 }
 
@@ -141,6 +144,7 @@ static void StopHotplugThread()
 void Init()
 {
   s_devnode_name_map.clear();
+  s_fds_to_close.reserve(64);
 
   // During initialization we use udev to iterate over all /dev/input/event* devices.
   // Note: the Linux kernel is currently limited to just 32 event devices. If this ever
@@ -183,6 +187,12 @@ void Init()
   udev_enumerate_unref(enumerate);
   udev_unref(udev);
 
+  puts("closing files...");
+  for (int fd : s_fds_to_close)
+    close(fd);
+  s_fds_to_close.clear();
+  puts("done");
+
   StartHotplugThread();
 }
 
@@ -201,7 +211,7 @@ evdevDevice::evdevDevice(const std::string& devnode) : m_devfile(devnode)
   {
     // This useally fails because the device node isn't an evdev device, such as /dev/input/js0
     m_initialized = false;
-    close(m_fd);
+    s_fds_to_close.push_back(m_fd);
     return;
   }
 
