@@ -9,6 +9,9 @@
 #include <Windows.h>
 
 #include "Common/Common.h"
+// Luckily the only place where we need intrinsics in a header is on Windows
+// where intrinsics are always available anyway, so no worries about including
+// it first here, otherwise we'd be in a world of pain.
 #include "Common/Intrinsics.h"
 
 // Atomic operations are performed in a single step by the CPU. It is

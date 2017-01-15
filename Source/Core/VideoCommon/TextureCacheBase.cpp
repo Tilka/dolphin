@@ -54,7 +54,7 @@ void TextureCacheBase::CheckTempSize(size_t required_size)
 
   temp_size = required_size;
   Common::FreeAlignedMemory(temp);
-  temp = static_cast<u8*>(Common::AllocateAlignedMemory(temp_size, 16));
+  temp = static_cast<u8*>(Common::AllocateAlignedMemory(temp_size, 32));
 }
 
 TextureCacheBase::TextureCacheBase()
@@ -62,12 +62,13 @@ TextureCacheBase::TextureCacheBase()
   SetBackupConfig(g_ActiveConfig);
 
   temp_size = 2048 * 2048 * 4;
-  temp = static_cast<u8*>(Common::AllocateAlignedMemory(temp_size, 16));
+  temp = static_cast<u8*>(Common::AllocateAlignedMemory(temp_size, 32));
 
-  TexDecoder_SetTexFmtOverlayOptions(backup_config.texfmt_overlay,
-                                     backup_config.texfmt_overlay_center);
+  TextureDecoder::SetTexFmtOverlayOptions(backup_config.texfmt_overlay,
+                                          backup_config.texfmt_overlay_center);
 
   HiresTexture::Init();
+  TextureDecoder::Init();
 
   SetHash64Function();
 }
@@ -114,8 +115,8 @@ void TextureCacheBase::OnConfigChanged(VideoConfig& config)
   {
     Invalidate();
 
-    TexDecoder_SetTexFmtOverlayOptions(g_ActiveConfig.bTexFmtOverlayEnable,
-                                       g_ActiveConfig.bTexFmtOverlayCenter);
+    TextureDecoder::SetTexFmtOverlayOptions(g_ActiveConfig.bTexFmtOverlayEnable,
+                                            g_ActiveConfig.bTexFmtOverlayCenter);
   }
 
   if ((config.iStereoMode > 0) != backup_config.stereo_3d ||
@@ -311,10 +312,10 @@ TextureCacheBase::DoPartialTextureUpdates(TCacheEntryBase* entry_to_update, u8* 
   if (entry_to_update->IsEfbCopy())
     return entry_to_update;
 
-  u32 block_width = TexDecoder_GetBlockWidthInTexels(entry_to_update->format & 0xf);
-  u32 block_height = TexDecoder_GetBlockHeightInTexels(entry_to_update->format & 0xf);
+  u32 block_width = TextureDecoder::GetBlockWidthInTexels(entry_to_update->format & 0xf);
+  u32 block_height = TextureDecoder::GetBlockHeightInTexels(entry_to_update->format & 0xf);
   u32 block_size = block_width * block_height *
-                   TexDecoder_GetTexelSizeInNibbles(entry_to_update->format & 0xf) / 2;
+                   TextureDecoder::GetTexelSizeInNibbles(entry_to_update->format & 0xf) / 2;
 
   u32 numBlocksX = (entry_to_update->native_width + block_width - 1) / block_width;
 
@@ -499,8 +500,8 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
   const bool from_tmem = tex.texImage1[id].image_type != 0;
 
   // TexelSizeInNibbles(format) * width * height / 16;
-  const unsigned int bsw = TexDecoder_GetBlockWidthInTexels(texformat);
-  const unsigned int bsh = TexDecoder_GetBlockHeightInTexels(texformat);
+  const unsigned int bsw = TextureDecoder::GetBlockWidthInTexels(texformat);
+  const unsigned int bsh = TextureDecoder::GetBlockHeightInTexels(texformat);
 
   unsigned int expandedWidth = Common::AlignUp(width, bsw);
   unsigned int expandedHeight = Common::AlignUp(height, bsh);
@@ -525,7 +526,7 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
     full_format = texformat | (tlutfmt << 16);
 
   const u32 texture_size =
-      TexDecoder_GetTextureSizeInBytes(expandedWidth, expandedHeight, texformat);
+      TextureDecoder::GetTextureSizeInBytes(expandedWidth, expandedHeight, texformat);
   u32 additional_mips_size = 0;  // not including level 0, which is texture_size
 
   // GPUs don't like when the specified mipmap count would require more than one 1x1-sized LOD in
@@ -541,7 +542,7 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
     const u32 expanded_mip_height = Common::AlignUp(CalculateLevelSize(height, level), bsh);
 
     additional_mips_size +=
-        TexDecoder_GetTextureSizeInBytes(expanded_mip_width, expanded_mip_height, texformat);
+        TextureDecoder::GetTextureSizeInBytes(expanded_mip_width, expanded_mip_height, texformat);
   }
 
   const u8* src_data;
@@ -569,7 +570,7 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
   u32 palette_size = 0;
   if (isPaletteTexture)
   {
-    palette_size = TexDecoder_GetPaletteSize(texformat);
+    palette_size = TextureDecoder::GetPaletteSize(texformat);
     full_hash = base_hash ^ GetHash64(&texMem[tlutaddr], palette_size,
                                       g_ActiveConfig.iSafeTextureCache_ColorSamples);
   }
@@ -771,15 +772,16 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
   {
     if (!(texformat == GX_TF_RGBA8 && from_tmem))
     {
-      const u8* tlut = &texMem[tlutaddr];
-      TexDecoder_Decode(temp, src_data, expandedWidth, expandedHeight, texformat, tlut,
-                        (TlutFormat)tlutfmt);
+      const u16* tlut = (u16*)&texMem[tlutaddr];
+      TextureDecoder::Decode(temp, src_data, expandedWidth, expandedHeight, texformat, tlut,
+                             (TlutFormat)tlutfmt);
     }
     else
     {
       u8* src_data_gb =
           &texMem[bpmem.tex[stage / 4].texImage2[stage % 4].tmem_odd * TMEM_LINE_SIZE];
-      TexDecoder_DecodeRGBA8FromTmem(temp, src_data, src_data_gb, expandedWidth, expandedHeight);
+      TextureDecoder::DecodeRGBA8FromTmem(temp, src_data, src_data_gb, expandedWidth,
+                                          expandedHeight);
     }
   }
 
@@ -840,11 +842,11 @@ TextureCacheBase::TCacheEntryBase* TextureCacheBase::Load(const u32 stage)
       const u32 expanded_mip_height = Common::AlignUp(mip_height, bsh);
 
       const u8*& mip_src_data = from_tmem ? ((level % 2) ? ptr_odd : ptr_even) : src_data;
-      const u8* tlut = &texMem[tlutaddr];
-      TexDecoder_Decode(temp, mip_src_data, expanded_mip_width, expanded_mip_height, texformat,
-                        tlut, (TlutFormat)tlutfmt);
+      const u16* tlut = (u16*)&texMem[tlutaddr];
+      TextureDecoder::Decode(temp, mip_src_data, expanded_mip_width, expanded_mip_height, texformat,
+                             tlut, (TlutFormat)tlutfmt);
       mip_src_data +=
-          TexDecoder_GetTextureSizeInBytes(expanded_mip_width, expanded_mip_height, texformat);
+          TextureDecoder::GetTextureSizeInBytes(expanded_mip_width, expanded_mip_height, texformat);
 
       entry->Load(temp, mip_width, mip_height, expanded_mip_width, level);
 
@@ -1217,10 +1219,10 @@ void TextureCacheBase::CopyRenderTargetToTexture(u32 dstAddr, unsigned int dstFo
   }
 
   // Get the base (in memory) format of this efb copy.
-  int baseFormat = TexDecoder_GetEfbCopyBaseFormat(dstFormat);
+  int baseFormat = TextureDecoder::GetEfbCopyBaseFormat(dstFormat);
 
-  u32 blockH = TexDecoder_GetBlockHeightInTexels(baseFormat);
-  const u32 blockW = TexDecoder_GetBlockWidthInTexels(baseFormat);
+  u32 blockH = TextureDecoder::GetBlockHeightInTexels(baseFormat);
+  const u32 blockW = TextureDecoder::GetBlockWidthInTexels(baseFormat);
 
   // Round up source height to multiple of block size
   u32 actualHeight = Common::AlignUp(tex_h, blockH);
@@ -1436,7 +1438,7 @@ TextureCacheBase::InvalidateTexture(TexAddrCache::iterator iter)
 
 u32 TextureCacheBase::TCacheEntryBase::BytesPerRow() const
 {
-  const u32 blockW = TexDecoder_GetBlockWidthInTexels(format);
+  const u32 blockW = TextureDecoder::GetBlockWidthInTexels(format);
 
   // Round up source height to multiple of block size
   const u32 actualWidth = Common::AlignUp(native_width, blockW);
@@ -1451,7 +1453,7 @@ u32 TextureCacheBase::TCacheEntryBase::BytesPerRow() const
 
 u32 TextureCacheBase::TCacheEntryBase::NumBlocksY() const
 {
-  u32 blockH = TexDecoder_GetBlockHeightInTexels(format);
+  u32 blockH = TextureDecoder::GetBlockHeightInTexels(format);
   // Round up source height to multiple of block size
   u32 actualHeight = Common::AlignUp(native_height, blockH);
 

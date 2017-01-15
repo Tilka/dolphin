@@ -30,6 +30,7 @@ set(SRCS	AsyncRequests.cpp
 			TextureCacheBase.cpp
 			TextureConversionShader.cpp
 			TextureDecoder_Common.cpp
+			TextureDecoder_Generic.cpp
 			VertexLoader.cpp
 			VertexLoaderBase.cpp
 			VertexLoaderManager.cpp
@@ -50,9 +51,7 @@ set(LIBS core png)
 if(_M_X86)
 	set(SRCS ${SRCS} TextureDecoder_x64.cpp VertexLoaderX64.cpp)
 elseif(_M_ARM_64)
-	set(SRCS ${SRCS} VertexLoaderARM64.cpp TextureDecoder_Generic.cpp)
-else()
-	set(SRCS ${SRCS} TextureDecoder_Generic.cpp)
+	set(SRCS ${SRCS} VertexLoaderARM64.cpp)
 endif()
 
 if(LIBAV_FOUND OR WIN32)

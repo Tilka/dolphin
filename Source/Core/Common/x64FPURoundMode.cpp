@@ -2,12 +2,13 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "Common/Intrinsics.h"  // NOLINT
+
 #include <cfenv>
 
 #include "Common/CPUDetect.h"
 #include "Common/CommonTypes.h"
 #include "Common/FPURoundMode.h"
-#include "Common/Intrinsics.h"
 
 namespace FPURoundMode
 {

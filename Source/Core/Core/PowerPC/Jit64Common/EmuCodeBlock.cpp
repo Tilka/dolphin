@@ -2,11 +2,12 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "Common/Intrinsics.h"  // NOLINT
+
 #include "Core/PowerPC/Jit64Common/EmuCodeBlock.h"
 
 #include "Common/Assert.h"
 #include "Common/CPUDetect.h"
-#include "Common/Intrinsics.h"
 #include "Common/MathUtil.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/Memmap.h"

@@ -11,22 +11,22 @@ enum
   TMEM_SIZE = 1024 * 1024,
   TMEM_LINE_SIZE = 32,
 };
-alignas(16) extern u8 texMem[TMEM_SIZE];
+alignas(32) extern u8 texMem[TMEM_SIZE];
 
 enum TextureFormat
 {
   // These are the texture formats that can be read by the texture mapper.
-  GX_TF_I4 = 0x0,
-  GX_TF_I8 = 0x1,
-  GX_TF_IA4 = 0x2,
-  GX_TF_IA8 = 0x3,
-  GX_TF_RGB565 = 0x4,
-  GX_TF_RGB5A3 = 0x5,
-  GX_TF_RGBA8 = 0x6,
-  GX_TF_C4 = 0x8,
-  GX_TF_C8 = 0x9,
-  GX_TF_C14X2 = 0xA,
-  GX_TF_CMPR = 0xE,
+  GX_TF_I4 = 0x0,      // RGBA4
+  GX_TF_I8 = 0x1,      // RGBA8
+  GX_TF_IA4 = 0x2,     // RGB4A4
+  GX_TF_IA8 = 0x3,     // RGB8A8
+  GX_TF_RGB565 = 0x4,  // RGB565
+  GX_TF_RGB5A3 = 0x5,  // RGB555/RGBA4443 (selected by 1 bit)
+  GX_TF_RGBA8 = 0x6,   // RGBA8888
+  GX_TF_C4 = 0x8,      // paletted,    16 colors (RGB8A8, RGB565, RGB555/RGBA4443)
+  GX_TF_C8 = 0x9,      // paletted,   256 colors (see above)
+  GX_TF_C14X2 = 0xA,   // paletted, 16384 colors (see above)
+  GX_TF_CMPR = 0xE,    // compressed, similar to S3TC DXT1
 
   _GX_TF_ZTF = 0x10,  // flag for Z texture formats (used internally by dolphin)
 
@@ -67,24 +67,27 @@ enum TlutFormat
   GX_TL_RGB5A3 = 0x2,
 };
 
-int TexDecoder_GetTexelSizeInNibbles(int format);
-int TexDecoder_GetTextureSizeInBytes(int width, int height, int format);
-int TexDecoder_GetBlockWidthInTexels(u32 format);
-int TexDecoder_GetBlockHeightInTexels(u32 format);
-int TexDecoder_GetPaletteSize(int fmt);
-int TexDecoder_GetEfbCopyBaseFormat(int format);
+namespace TextureDecoder
+{
 
-void TexDecoder_Decode(u8* dst, const u8* src, int width, int height, int texformat, const u8* tlut,
-                       TlutFormat tlutfmt);
-void TexDecoder_DecodeRGBA8FromTmem(u8* dst, const u8* src_ar, const u8* src_gb, int width,
-                                    int height);
-void TexDecoder_DecodeTexel(u8* dst, const u8* src, int s, int t, int imageWidth, int texformat,
-                            const u8* tlut, TlutFormat tlutfmt);
-void TexDecoder_DecodeTexelRGBA8FromTmem(u8* dst, const u8* src_ar, const u8* src_gb, int s, int t,
-                                         int imageWidth);
+int GetTexelSizeInNibbles(int format);
+int GetTextureSizeInBytes(int width, int height, int format);
+int GetBlockWidthInTexels(u32 format);
+int GetBlockHeightInTexels(u32 format);
+int GetPaletteSize(int fmt);
+int GetEfbCopyBaseFormat(int format);
 
-void TexDecoder_SetTexFmtOverlayOptions(bool enable, bool center);
+void Init();
+void Decode(u8* dst, const u8* src, int width, int height, int texformat,
+            const u16* tlut = nullptr, TlutFormat tlutfmt = GX_TL_IA8);
+void DecodeRGBA8FromTmem(u8* dst, const u8* src_ar, const u8* src_gb, int width, int height);
+void DecodeTexel(u8* dst, const u8* src, int s, int t, int imageWidth, int texformat,
+                 const u16* tlut, TlutFormat tlutfmt);
+void DecodeTexelRGBA8FromTmem(u8* dst, const u8* src_ar, const u8* src_gb, int s, int t,
+                              int imageWidth);
 
-/* Internal method, implemented by TextureDecoder_Generic and TextureDecoder_x64. */
-void _TexDecoder_DecodeImpl(u32* dst, const u8* src, int width, int height, int texformat,
-                            const u8* tlut, TlutFormat tlutfmt);
+const char* GetTextureFormatName(int format);
+const char* GetTlutFormatName(TlutFormat format);
+void SetTexFmtOverlayOptions(bool enable, bool center);
+
+}  // namespace TextureDecoder

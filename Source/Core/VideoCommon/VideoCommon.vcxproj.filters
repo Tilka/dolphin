@@ -146,6 +146,9 @@
     <ClCompile Include="TextureDecoder_Common.cpp">
       <Filter>Decoding</Filter>
     </ClCompile>
+    <ClCompile Include="TextureDecoder_Generic.cpp">
+      <Filter>Decoding</Filter>
+    </ClCompile>
     <ClCompile Include="TextureDecoder_x64.cpp">
       <Filter>Decoding</Filter>
     </ClCompile>

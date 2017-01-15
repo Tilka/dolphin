@@ -2,6 +2,8 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "Common/Intrinsics.h"  // NOLINT
+
 #include <cinttypes>
 #include <ctime>  // For profiling
 #include <map>
@@ -11,7 +13,6 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
-#include "Common/Intrinsics.h"
 #include "Common/Logging/Log.h"
 #include "Common/StringUtil.h"
 #include "Common/x64ABI.h"

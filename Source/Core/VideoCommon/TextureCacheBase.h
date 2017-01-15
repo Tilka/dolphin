@@ -173,7 +173,7 @@ public:
 protected:
   TextureCacheBase();
 
-  alignas(16) u8* temp = nullptr;
+  u8* temp = nullptr;
   size_t temp_size = 0;
 
   TCacheEntryBase* bound_textures[8] = {};

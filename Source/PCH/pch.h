@@ -2,6 +2,8 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "Common/Intrinsics.h"  // NOLINT
+
 #include <algorithm>
 #include <array>
 #include <assert.h>

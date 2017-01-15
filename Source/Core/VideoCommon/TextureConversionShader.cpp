@@ -86,8 +86,8 @@ static void WriteSwizzler(char*& p, u32 format, APIType ApiType)
   else
     WRITE(p, "uniform int4 position;\n");
 
-  int blkW = TexDecoder_GetBlockWidthInTexels(format);
-  int blkH = TexDecoder_GetBlockHeightInTexels(format);
+  int blkW = TextureDecoder::GetBlockWidthInTexels(format);
+  int blkH = TextureDecoder::GetBlockHeightInTexels(format);
   int samples = GetEncodedSampleCount(format);
 
   if (ApiType == APIType::OpenGL)
