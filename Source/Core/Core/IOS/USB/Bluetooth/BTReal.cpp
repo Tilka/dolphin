@@ -45,16 +45,36 @@ static bool IsWantedDevice(const libusb_device_descriptor& descriptor)
   return descriptor.idVendor == vid && descriptor.idProduct == pid;
 }
 
-static bool IsBluetoothDevice(const libusb_interface_descriptor& descriptor)
+static bool IsBluetoothDevice(const libusb_device_descriptor& device,
+                              const libusb_interface_descriptor& interface)
 {
   constexpr u8 SUBCLASS = 0x01;
   constexpr u8 PROTOCOL_BLUETOOTH = 0x01;
   if (SConfig::GetInstance().m_bt_passthrough_vid != -1 &&
       SConfig::GetInstance().m_bt_passthrough_pid != -1)
     return true;
-  return descriptor.bInterfaceClass == LIBUSB_CLASS_WIRELESS &&
-         descriptor.bInterfaceSubClass == SUBCLASS &&
-         descriptor.bInterfaceProtocol == PROTOCOL_BLUETOOTH;
+  if (interface.bInterfaceClass == LIBUSB_CLASS_WIRELESS &&
+      interface.bInterfaceSubClass == SUBCLASS &&
+      interface.bInterfaceProtocol == PROTOCOL_BLUETOOTH)
+    return true;
+  // Try Bluetooth adapters that don't identify as such.
+  struct
+  {
+    u16 vid, pid;
+  } naughty_adapters[] = {
+      {0x0461, 0x4D75},  // Rocketfish RF-MRBTAD
+      {0x050D, 0x065A},  // Belkin F8T065BF
+      {0x0A5C, 0x21E8},  // multiple
+      {0x0A5C, 0x21EC},  // Orico BTA-408
+      {0x0B05, 0x17CB},  // Asus USB-BT400
+      {0x0B05, 0x17CF},  // Asus USB-BT400
+  };
+  for (auto [vid, pid] : naughty_adapters)
+  {
+    if (device.idVendor == vid && device.idProduct == pid)
+      return true;
+  }
+  return false;
 }
 
 BluetoothReal::BluetoothReal(Kernel& ios, const std::string& device_name)
@@ -94,7 +114,8 @@ IPCCommandResult BluetoothReal::Open(const OpenRequest& request)
 
     const libusb_interface& interface = config_descriptor->interface[INTERFACE];
     const libusb_interface_descriptor& descriptor = interface.altsetting[0];
-    if (IsBluetoothDevice(descriptor) && IsWantedDevice(device_descriptor) && OpenDevice(device))
+    if (IsBluetoothDevice(device_descriptor, descriptor) && IsWantedDevice(device_descriptor) &&
+        OpenDevice(device))
     {
       unsigned char manufacturer[50] = {}, product[50] = {}, serial_number[50] = {};
       libusb_get_string_descriptor_ascii(m_handle, device_descriptor.iManufacturer, manufacturer,
