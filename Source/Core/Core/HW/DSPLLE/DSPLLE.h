@@ -38,6 +38,8 @@ public:
   void DSP_StopSoundStream() override;
   u32 DSP_UpdateRate() override;
 
+  DSPCore &GetDSPCore() { return m_dsp_core; }
+
 private:
   static void DSPThread(DSPLLE* dsp_lle);
 

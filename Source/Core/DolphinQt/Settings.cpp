@@ -693,6 +693,20 @@ bool Settings::IsJITVisible() const
   return QSettings().value(QStringLiteral("debugger/showjit")).toBool();
 }
 
+void Settings::SetDSPVisible(bool enabled)
+{
+  if (IsDSPVisible() == enabled)
+    return;
+  QSettings().setValue(QStringLiteral("debugger/showdsp"), enabled);
+
+  emit DSPVisibilityChanged(enabled);
+}
+
+bool Settings::IsDSPVisible() const
+{
+  return QSettings().value(QStringLiteral("debugger/showdsp")).toBool();
+}
+
 void Settings::RefreshWidgetVisibility()
 {
   emit DebugModeToggled(IsDebugModeEnabled());

@@ -494,6 +494,12 @@ void MenuBar::AddViewMenu()
   connect(m_show_jit, &QAction::toggled, &Settings::Instance(), &Settings::SetJITVisible);
   connect(&Settings::Instance(), &Settings::JITVisibilityChanged, m_show_jit, &QAction::setChecked);
 
+  m_show_dsp = view_menu->addAction(tr("&DSP"));
+  m_show_dsp->setCheckable(true);
+  m_show_dsp->setChecked(Settings::Instance().IsDSPVisible());
+  connect(m_show_dsp, &QAction::toggled, &Settings::Instance(), &Settings::SetDSPVisible);
+  connect(&Settings::Instance(), &Settings::DSPVisibilityChanged, m_show_dsp, &QAction::setChecked);
+
   view_menu->addSeparator();
 
   AddGameListTypeSection(view_menu);

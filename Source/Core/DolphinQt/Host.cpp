@@ -268,6 +268,8 @@ bool Host_UIBlocksControllerState()
 
 void Host_RefreshDSPDebuggerWindow()
 {
+  // Lazy: We dump all debugger updates into the same signal.
+  Host_UpdateDisasmDialog();
 }
 
 void Host_TitleChanged()

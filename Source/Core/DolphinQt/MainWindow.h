@@ -25,6 +25,7 @@ class CodeWidget;
 class ControllersWindow;
 class DiscordHandler;
 class DragEnterEvent;
+class DSPWidget;
 class FIFOPlayerWindow;
 class FreeLookWindow;
 class GameList;
@@ -261,6 +262,7 @@ private:
 
   BreakpointWidget* m_breakpoint_widget;
   CodeWidget* m_code_widget;
+  DSPWidget* m_dsp_widget;
   JITWidget* m_jit_widget;
   LogWidget* m_log_widget;
   LogConfigWidget* m_log_config_widget;

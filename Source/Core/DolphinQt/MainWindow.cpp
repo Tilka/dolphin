@@ -85,6 +85,7 @@
 #include "DolphinQt/Debugger/BreakpointWidget.h"
 #include "DolphinQt/Debugger/CodeViewWidget.h"
 #include "DolphinQt/Debugger/CodeWidget.h"
+#include "DolphinQt/Debugger/DSPWidget.h"
 #include "DolphinQt/Debugger/JITWidget.h"
 #include "DolphinQt/Debugger/MemoryWidget.h"
 #include "DolphinQt/Debugger/NetworkWidget.h"
@@ -438,6 +439,7 @@ void MainWindow::CreateComponents()
     m_wii_tas_input_windows[i] = new WiiTASInputWindow(nullptr, i);
   }
 
+  m_dsp_widget = new DSPWidget(this);
   m_jit_widget = new JITWidget(this);
   m_log_widget = new LogWidget(this);
   m_log_config_widget = new LogConfigWidget(this);
@@ -740,6 +742,7 @@ void MainWindow::ConnectStack()
   addDockWidget(Qt::LeftDockWidgetArea, m_memory_widget);
   addDockWidget(Qt::LeftDockWidgetArea, m_network_widget);
   addDockWidget(Qt::LeftDockWidgetArea, m_jit_widget);
+  addDockWidget(Qt::LeftDockWidgetArea, m_dsp_widget);
 
   tabifyDockWidget(m_log_widget, m_log_config_widget);
   tabifyDockWidget(m_log_widget, m_code_widget);
@@ -750,6 +753,7 @@ void MainWindow::ConnectStack()
   tabifyDockWidget(m_log_widget, m_memory_widget);
   tabifyDockWidget(m_log_widget, m_network_widget);
   tabifyDockWidget(m_log_widget, m_jit_widget);
+  tabifyDockWidget(m_log_widget, m_dsp_widget);
 }
 
 void MainWindow::RefreshGameList()
