@@ -74,6 +74,7 @@ std::string GetName(Region region, bool translate);
 
 bool IsDisc(Platform volume_type);
 bool IsWii(Platform volume_type);
+bool HasFileSystem(Platform volume_type);
 bool IsNTSC(Region region);
 
 int ToGameCubeLanguage(Language language);

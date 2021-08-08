@@ -24,11 +24,13 @@
 #include "Core/IOS/IOSC.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/Enums.h"
+#include "DiscIO/FileSystemWad.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/WiiSaveBanner.h"
 
 namespace DiscIO
 {
+
 VolumeWAD::VolumeWAD(std::unique_ptr<BlobReader> reader) : m_reader(std::move(reader))
 {
   ASSERT(m_reader);
@@ -63,6 +65,8 @@ VolumeWAD::VolumeWAD(std::unique_ptr<BlobReader> reader) : m_reader(std::move(re
 
   m_cert_chain.resize(m_cert_chain_size);
   Read(m_cert_chain_offset, m_cert_chain_size, m_cert_chain.data());
+
+  m_file_system = [this]() { return std::make_unique<FileSystemWAD>(*this); };
 }
 
 bool VolumeWAD::Read(u64 offset, u64 length, u8* buffer, const Partition& partition) const
@@ -75,8 +79,7 @@ bool VolumeWAD::Read(u64 offset, u64 length, u8* buffer, const Partition& partit
 
 const FileSystem* VolumeWAD::GetFileSystem(const Partition& partition) const
 {
-  // TODO: Implement this?
-  return nullptr;
+  return m_file_system->get();
 }
 
 Region VolumeWAD::GetRegion() const
@@ -341,6 +344,11 @@ std::array<u8, 20> VolumeWAD::GetSyncHash() const
   ReadAndAddToSyncHash(context.get(), m_opening_bnr_offset, m_opening_bnr_size, PARTITION_NONE);
 
   return context->Finish();
+}
+
+u32 VolumeWAD::GetDataOffset() const
+{
+  return m_data_offset;
 }
 
 }  // namespace DiscIO

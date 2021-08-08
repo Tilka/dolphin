@@ -19,6 +19,8 @@ add_library(discio
   FileBlob.h
   FileSystemGCWii.cpp
   FileSystemGCWii.h
+  FileSystemWad.cpp
+  FileSystemWad.h
   Filesystem.cpp
   Filesystem.h
   GameModDescriptor.cpp

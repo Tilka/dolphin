@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/Lazy.h"
 #include "Core/IOS/ES/Formats.h"
+#include "DiscIO/Filesystem.h"
 #include "DiscIO/Volume.h"
 
 namespace DiscIO
@@ -69,6 +71,8 @@ public:
 
   std::array<u8, 20> GetSyncHash() const override;
 
+  u32 GetDataOffset() const;
+
 private:
   std::unique_ptr<BlobReader> m_reader;
   IOS::ES::TicketReader m_ticket;
@@ -85,6 +89,7 @@ private:
   u32 m_tmd_size = 0;
   u32 m_data_size = 0;
   u32 m_opening_bnr_size = 0;
+  Common::Lazy<std::unique_ptr<FileSystem>> m_file_system;
 };
 
 }  // namespace DiscIO

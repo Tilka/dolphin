@@ -147,6 +147,14 @@ bool IsWii(Platform volume_type)
   return volume_type == Platform::WiiDisc || volume_type == Platform::WiiWAD;
 }
 
+bool HasFileSystem(Platform volume_type)
+{
+  return
+    volume_type == Platform::GameCubeDisc ||
+    volume_type == Platform::WiiDisc ||
+    volume_type == Platform::WiiWAD;
+}
+
 bool IsNTSC(Region region)
 {
   return region == Region::NTSC_J || region == Region::NTSC_U || region == Region::NTSC_K;
