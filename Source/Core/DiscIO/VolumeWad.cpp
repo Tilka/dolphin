@@ -18,6 +18,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Crypto/AES.h"
 #include "Common/Crypto/SHA1.h"
+#include "Common/IOFile.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/StringUtil.h"
@@ -169,6 +170,9 @@ bool VolumeWAD::CheckContentIntegrity(const IOS::ES::Content& content,
 
   std::vector<u8> decrypted_data(encrypted_data.size());
   context->Crypt(iv.data(), encrypted_data.data(), decrypted_data.data(), decrypted_data.size());
+
+  const std::string path = fmt::format("/tmp/content_{}.app", content.id);
+  File::IOFile(path, "wb").WriteBytes(decrypted_data.data(), content.size);
 
   return Common::SHA1::CalculateDigest(decrypted_data.data(), content.size) == content.sha1;
 }
