@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "Common/FileUtil.h"
+#include "Core/DSP/DSPAssembler.h"
 #include "Core/DSP/DSPCodeUtil.h"
 #include "Core/DSP/DSPDisassembler.h"
+#include "Core/DSP/Interpreter/DSPInterpreter.h"
 
 #include "DSPTestBinary.h"
 #include "DSPTestText.h"
@@ -144,11 +146,37 @@ TEST(DSPAssembly, DSPTestBinary)
   ASSERT_TRUE(RoundTrip(s_dsp_test_bin));
 }
 
-/*
+static DSP::DSP_Regs RunInterpreter(std::string asm_text)
+{
+  DSP::InitInstructionTable();
+  DSP::AssemblerSettings settings{.pc = 0x8000};
+  DSP::DSPAssembler assembler(settings);
+  // FIXME: we should run test code from iram, not irom
+  std::vector<u16> irom;
+  assembler.Assemble(asm_text, irom);
+  DSP::DSPInitOptions opts;
+  std::copy(irom.begin(), irom.end(), opts.irom_contents.begin());
+  // FIXME: JIT crashes since it relies on global config state -.-
+  opts.core_type = DSP::DSPInitOptions::CoreType::Interpreter;
+  DSP::DSPCore core;
+  core.Initialize(opts);
+  core.GetInterpreter().WriteCR(DSP::CR_RESET);
+  core.RunCycles(100);
+  return core.DSPState().r;
+}
 
-if (File::ReadFileToString("C:/devkitPro/examples/wii/asndlib/dsptest/dsp_test.ds", &dsp_test))
-  SuperTrip(dsp_test.c_str());
-
-//.File::ReadFileToString("C:/devkitPro/trunk/libogc/libasnd/dsp_mixer/dsp_mixer.s", &dsp_test);
-// This is CLOSE to working. Sorry about the local path btw. This is preliminary code.
-*/
+TEST(DSPInterpreter, TestIsLess)
+{
+  DSP::DSP_Regs r = RunInterpreter(R"(
+    CLR $acc0
+    CLR $acc1
+    LRI $ac0.h, #0x0050
+    LRI $ac1.h, #0x0050
+    ADD $acc0, $acc1      ; Causes acc0 to overflow, and thus also become negative
+    LRI $AX0.L, #0x0000
+    IFL
+    LRI $AX0.L, #0x0001
+    HALT
+    )");
+  ASSERT_EQ(r.ax[0].l, 0x0000);
+}
