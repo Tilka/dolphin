@@ -437,6 +437,7 @@ void AXUCode::ProcessPBList(u32 pb_addr)
                           m_samples_auxB_left, m_samples_auxB_right, m_samples_auxB_surround}};
 
     ReadPB(pb_addr, pb, m_crc);
+    ReadITD(pb.itd, m_samples_itd);
 
     u32 updates_addr = HILO_TO_32(pb.updates.data);
     u16* updates = (u16*)HLEMemory_Get_Pointer(updates_addr);
@@ -451,8 +452,10 @@ void AXUCode::ProcessPBList(u32 pb_addr)
       // Forward the buffers
       for (auto& ptr : buffers.ptrs)
         ptr += spms;
+      UpdateITD(pb.itd);
     }
 
+    WriteITD(pb.itd, m_samples_itd);
     WritePB(pb_addr, pb, m_crc);
     pb_addr = HILO_TO_32(pb.next_pb);
   }

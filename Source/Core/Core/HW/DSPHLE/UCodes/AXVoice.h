@@ -145,6 +145,47 @@ void WritePB(u32 addr, const PB_TYPE& pb, u32 crc)
   }
 }
 
+void ReadITD(const PBInitialTimeDelay& itd, std::array<u16, 32>& dst)
+{
+  if (itd.on)
+  {
+    Memory::CopyFromEmuSwapped<u16>(dst.data(), HILO_TO_32(itd.addr), dst.size());
+#if 0
+    if (itd.offset_left != itd.target_left || itd.offset_right != itd.target_right)
+    {
+      ERROR_LOG_FMT(DSPHLE, "ITD(0x{:08X}, L: {} -> {} R: {} -> {})", HILO_TO_32(itd.addr),
+                    itd.offset_left, itd.target_left, itd.offset_right, itd.target_right);
+    }
+    else
+    {
+      ERROR_LOG_FMT(DSPHLE, "ITD(0x{:08X})", HILO_TO_32(itd.addr));
+    }
+#endif
+  }
+}
+
+void UpdateITD(PBInitialTimeDelay& itd)
+{
+  if (itd.on)
+  {
+    if (itd.offset_left < itd.target_left)
+      ++itd.offset_left;
+    else if (itd.offset_left > itd.target_left)
+      --itd.offset_left;
+
+    if (itd.offset_right < itd.target_right)
+      ++itd.offset_right;
+    else if (itd.offset_right > itd.target_right)
+      --itd.offset_right;
+  }
+}
+
+void WriteITD(PBInitialTimeDelay& itd, std::array<u16, 32> const& src)
+{
+  if (itd.on)
+    Memory::CopyToEmuSwapped<u16>(HILO_TO_32(itd.addr), src.data(), src.size());
+}
+
 // Simulated accelerator state.
 static PB_TYPE* acc_pb;
 
@@ -498,7 +539,7 @@ void ProcessVoice(PB_TYPE& pb, const AXBuffers& buffers, u16 count, AXMixControl
 #undef RAMP_ON
 
   // Optionally, phase shift left or right channel to simulate 3D sound.
-  if (pb.initial_time_delay.on)
+  if (pb.itd.on)
   {
     // TODO
     DolphinAnalytics::Instance().ReportGameQuirk(GameQuirk::USES_AX_INITIAL_TIME_DELAY);

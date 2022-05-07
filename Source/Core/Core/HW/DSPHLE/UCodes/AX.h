@@ -105,6 +105,9 @@ protected:
   std::optional<u32> m_coeffs_checksum = std::nullopt;
   std::array<s16, 0x800> m_coeffs{};
 
+  // Initial time delay buffer
+  std::array<u16, 32> m_samples_itd;
+
   u16 m_compressor_pos = 0;
 
   bool LoadResamplingCoefficients(bool require_same_checksum, u32 desired_checksum);
