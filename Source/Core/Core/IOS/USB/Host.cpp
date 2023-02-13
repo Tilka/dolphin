@@ -22,6 +22,7 @@
 #include "Core/Config/MainSettings.h"
 #include "Core/Core.h"
 #include "Core/IOS/USB/Common.h"
+#include "Core/IOS/USB/Emulated/Skateboard.h"
 #include "Core/IOS/USB/Emulated/Skylander.h"
 #include "Core/IOS/USB/LibusbDevice.h"
 #include "Core/NetPlayProto.h"
@@ -201,6 +202,20 @@ void USBHost::AddEmulatedDevices(std::set<u64>& new_devices, DeviceChangeHooks& 
       }
     }
   }
+
+#if 1
+  // TODO: add a configuration option
+  // if (Config::Get(Config::MAIN_EMULATE_SKATEBOARD) && !NetPlay::IsNetPlayRunning())
+  {
+    auto skateboard = std::make_unique<USB::SkateboardUSB>(m_ios);
+    const u64 skateid = skateboard->GetId();
+    new_devices.insert(skateid);
+    if (AddDevice(std::move(skateboard)) || always_add_hooks)
+    {
+      hooks.emplace(GetDeviceById(skateid), ChangeEvent::Inserted);
+    }
+  }
+#endif
 }
 
 USBHost::ScanThread::~ScanThread()
