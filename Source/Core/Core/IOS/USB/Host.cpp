@@ -22,6 +22,7 @@
 #include "Core/Config/MainSettings.h"
 #include "Core/Core.h"
 #include "Core/IOS/USB/Common.h"
+#include "Core/IOS/USB/Emulated/HeartRateMonitor.h"
 #include "Core/IOS/USB/Emulated/Skateboard.h"
 #include "Core/IOS/USB/Emulated/Skylander.h"
 #include "Core/IOS/USB/LibusbDevice.h"
@@ -203,7 +204,7 @@ void USBHost::AddEmulatedDevices(std::set<u64>& new_devices, DeviceChangeHooks& 
     }
   }
 
-#if 1
+#if 0
   // TODO: add a configuration option
   // if (Config::Get(Config::MAIN_EMULATE_SKATEBOARD) && !NetPlay::IsNetPlayRunning())
   {
@@ -213,6 +214,18 @@ void USBHost::AddEmulatedDevices(std::set<u64>& new_devices, DeviceChangeHooks& 
     if (AddDevice(std::move(skateboard)) || always_add_hooks)
     {
       hooks.emplace(GetDeviceById(skateid), ChangeEvent::Inserted);
+    }
+  }
+#elif 0
+  // TODO: add a configuration option
+  // if (Config::Get(Config::MAIN_EMULATE_HEARTRATEMONITOR) && !NetPlay::IsNetPlayRunning())
+  {
+    auto hrm = std::make_unique<USB::HeartRateMonitor>(m_ios);
+    const u64 hrmid = hrm->GetId();
+    new_devices.insert(hrmid);
+    if (AddDevice(std::move(hrm)) || always_add_hooks)
+    {
+      hooks.emplace(GetDeviceById(hrmid), ChangeEvent::Inserted);
     }
   }
 #endif

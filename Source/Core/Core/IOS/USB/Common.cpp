@@ -9,6 +9,7 @@
 
 #include "Common/Assert.h"
 #include "Common/CommonTypes.h"
+#include "Common/StringUtil.h"
 #include "Common/Swap.h"
 #include "Core/HW/Memmap.h"
 #include "Core/System.h"
@@ -27,6 +28,17 @@ std::unique_ptr<u8[]> TransferCommand::MakeBuffer(const size_t size) const
 
 void TransferCommand::FillBuffer(const u8* src, const size_t size) const
 {
+  if (ios_request.fd == 7)
+  {
+    std::string s = HexDump(src, size);
+    s.resize(s.size() - 1);
+    if (size == 15)
+      ERROR_LOG_FMT(IOS_USB, "{:3} {:08b} {:08b} {:08b}", src[11], src[12], src[13], src[14]);
+    //if (size == 15)
+    //  ERROR_LOG_FMT(IOS_USB, "{}                                                                           {}", ios_request.fd, s);
+    //else
+    //  ERROR_LOG_FMT(IOS_USB, "{} {}", ios_request.fd, s);
+  }
   ASSERT_MSG(IOS_USB, size == 0 || data_address != 0, "Invalid data_address");
   auto& system = Core::System::GetInstance();
   auto& memory = system.GetMemory();
