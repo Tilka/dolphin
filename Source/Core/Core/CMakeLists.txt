@@ -777,3 +777,21 @@ if(USE_RETRO_ACHIEVEMENTS)
   target_link_libraries(core PRIVATE rcheevos)
   target_compile_definitions(core PRIVATE -DUSE_RETRO_ACHIEVEMENTS)
 endif()
+
+if(FFmpeg_FOUND)
+  target_link_libraries(core PRIVATE
+    FFmpeg::avcodec
+    FFmpeg::avformat
+    FFmpeg::avutil
+    FFmpeg::swresample
+    FFmpeg::swscale
+  )
+  if(APPLE)
+    target_link_libraries(core PRIVATE
+      ${COREMEDIA_LIBRARY}
+      ${VIDEOTOOLBOX_LIBRARY}
+      ${COREVIDEO_LIBRARY}
+      ${AUDIOTOOLBOX_LIBRARY}
+    )
+  endif()
+endif()
