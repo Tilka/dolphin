@@ -12,7 +12,4 @@ target_link_libraries(updatercommon PRIVATE
   cpp-optparse
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(updatercommon PRIVATE use_pch)
-endif()
+target_precompile_headers(updatercommon REUSE_FROM use_pch)

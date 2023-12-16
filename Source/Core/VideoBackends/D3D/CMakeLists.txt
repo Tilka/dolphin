@@ -30,7 +30,4 @@ PUBLIC
   videod3dcommon
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(videod3d PRIVATE use_pch)
-endif()
+target_precompile_headers(videod3d REUSE_FROM use_pch)

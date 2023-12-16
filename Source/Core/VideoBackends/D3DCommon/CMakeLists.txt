@@ -23,7 +23,4 @@ SYSTEM PRIVATE
   ${CMAKE_SOURCE_DIR}/Externals/glslang
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(videod3dcommon PRIVATE use_pch)
-endif()
+target_precompile_headers(videod3dcommon REUSE_FROM use_pch)

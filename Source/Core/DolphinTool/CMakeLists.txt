@@ -19,10 +19,7 @@ PRIVATE
   fmt::fmt
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(dolphin-tool PRIVATE use_pch)
-endif()
+target_precompile_headers(dolphin-tool REUSE_FROM use_pch)
 
 set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} dolphin-tool)
 install(TARGETS dolphin-tool RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

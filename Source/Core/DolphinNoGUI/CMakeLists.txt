@@ -40,10 +40,7 @@ if(APPLE)
   )
 endif()
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(dolphin-nogui PRIVATE use_pch)
-endif()
+target_precompile_headers(dolphin-nogui REUSE_FROM use_pch)
 
 if(USE_DISCORD_PRESENCE)
   target_compile_definitions(dolphin-nogui PRIVATE -DUSE_DISCORD_PRESENCE)

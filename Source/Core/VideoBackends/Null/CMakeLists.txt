@@ -18,7 +18,4 @@ PUBLIC
   videocommon
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(videonull PRIVATE use_pch)
-endif()
+target_precompile_headers(videonull REUSE_FROM use_pch)

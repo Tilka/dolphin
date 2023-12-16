@@ -63,7 +63,4 @@ PRIVATE
   ${CMAKE_SOURCE_DIR}/Externals/libadrenotools/include
 )
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(videovulkan PRIVATE use_pch)
-endif()
+target_precompile_headers(videovulkan REUSE_FROM use_pch)

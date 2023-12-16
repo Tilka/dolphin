@@ -184,10 +184,7 @@ if(ENABLE_SDL)
   target_compile_definitions(inputcommon PUBLIC HAVE_SDL2=1)
 endif()
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(inputcommon PRIVATE use_pch)
-endif()
+target_precompile_headers(inputcommon REUSE_FROM use_pch)
 
 if(TARGET Hidapi::Hidapi)
   target_sources(inputcommon

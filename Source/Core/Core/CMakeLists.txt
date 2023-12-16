@@ -768,10 +768,7 @@ if(UNIX)
   )
 endif()
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(core PRIVATE use_pch)
-endif()
+target_precompile_headers(core REUSE_FROM use_pch)
 
 if(USE_RETRO_ACHIEVEMENTS)
   target_link_libraries(core PRIVATE rcheevos)

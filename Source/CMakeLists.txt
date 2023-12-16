@@ -23,10 +23,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (MSVC)
-  # Compile PCH
-  add_subdirectory(PCH)
-else()
+if (NOT MSVC)
   check_and_add_flag(HAVE_WALL -Wall)
   # TODO: would like these but they produce overwhelming amounts of warnings
   #check_and_add_flag(EXTRA -Wextra)
@@ -65,6 +62,9 @@ endif()
 # but some dependencies require them (LLVM, libav).
 add_definitions(-D__STDC_LIMIT_MACROS)
 add_definitions(-D__STDC_CONSTANT_MACROS)
+
+# Compile PCH
+add_subdirectory(PCH)
 
 add_subdirectory(Core)
 if (ANDROID)

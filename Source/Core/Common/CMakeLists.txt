@@ -336,7 +336,4 @@ elseif(WIN32)
   target_link_libraries(common PRIVATE "-INCLUDE:enableCompatPatches")
 endif()
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(common PRIVATE use_pch)
-endif()
+target_precompile_headers(common REUSE_FROM use_pch)

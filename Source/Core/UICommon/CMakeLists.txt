@@ -67,7 +67,4 @@ if(USE_DISCORD_PRESENCE)
   target_link_libraries(uicommon PRIVATE discord-rpc)
 endif()
 
-if(MSVC)
-  # Add precompiled header
-  target_link_libraries(uicommon PRIVATE use_pch)
-endif()
+target_precompile_headers(uicommon REUSE_FROM use_pch)
