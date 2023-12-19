@@ -135,7 +135,7 @@ void GameCubePane::CreateWidgets()
   // Add slot devices
   for (const auto device : {EXIDeviceType::None, EXIDeviceType::Dummy, EXIDeviceType::MemoryCard,
                             EXIDeviceType::MemoryCardFolder, EXIDeviceType::Gecko,
-                            EXIDeviceType::AGP, EXIDeviceType::Microphone})
+                            EXIDeviceType::AGP, EXIDeviceType::Microphone, EXIDeviceType::RVA})
   {
     const QString name = tr(fmt::format("{:n}", device).c_str());
     const int value = static_cast<int>(device);
@@ -329,11 +329,13 @@ void GameCubePane::UpdateButton(ExpansionInterface::Slot slot)
     has_config = (device == ExpansionInterface::EXIDeviceType::MemoryCard ||
                   device == ExpansionInterface::EXIDeviceType::MemoryCardFolder ||
                   device == ExpansionInterface::EXIDeviceType::AGP ||
-                  device == ExpansionInterface::EXIDeviceType::Microphone);
+                  device == ExpansionInterface::EXIDeviceType::Microphone ||
+                  device == ExpansionInterface::EXIDeviceType::RVA);
     const bool hide_memory_card = device != ExpansionInterface::EXIDeviceType::MemoryCard ||
                                   Config::IsDefaultMemcardPathConfigured(slot);
     const bool hide_gci_path = device != ExpansionInterface::EXIDeviceType::MemoryCardFolder ||
                                Config::IsDefaultGCIFolderPathConfigured(slot);
+    const bool hide_rva = device != ExpansionInterface::EXIDeviceType::RVA;
     m_memcard_path_labels[slot]->setHidden(hide_memory_card);
     m_memcard_paths[slot]->setHidden(hide_memory_card);
     m_agp_path_labels[slot]->setHidden(device != ExpansionInterface::EXIDeviceType::AGP);
@@ -421,6 +423,10 @@ void GameCubePane::OnConfigPressed(ExpansionInterface::Slot slot)
     BroadbandAdapterSettingsDialog dialog(this, BroadbandAdapterSettingsDialog::Type::BuiltIn);
     SetQWidgetWindowDecorations(&dialog);
     dialog.exec();
+    return;
+  }
+  case ExpansionInterface::EXIDeviceType::RVA:
+  {
     return;
   }
   default:
