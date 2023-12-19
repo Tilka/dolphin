@@ -129,6 +129,9 @@ std::string GetName(Region region, bool translate)
   case DiscIO::Region::NTSC_K:
     name = _trans("NTSC-K");
     break;
+  case DiscIO::Region::RGB:
+    name = _trans("RGB");
+    break;
   default:
     name = _trans("Unknown");
     break;
@@ -150,6 +153,11 @@ bool IsWii(Platform volume_type)
 bool IsNTSC(Region region)
 {
   return region == Region::NTSC_J || region == Region::NTSC_U || region == Region::NTSC_K;
+}
+
+bool IsRGB(Region region)
+{
+  return region == Region::RGB;
 }
 
 int ToGameCubeLanguage(Language language)
@@ -182,6 +190,7 @@ Country TypicalCountryForRegion(Region region)
     return Country::Europe;
   case Region::NTSC_K:
     return Country::Korea;
+  case Region::RGB:
   default:
     return Country::Unknown;
   }
@@ -217,6 +226,9 @@ Region CountryCodeToRegion(u8 country_code, Platform platform, Region expected_r
   {
   case '\2':
     return expected_region;  // Wii Menu (same title ID for all regions)
+
+  case '\0':
+    return Region::RGB;
 
   case 'J':
     return Region::NTSC_J;
@@ -371,9 +383,14 @@ Country CountryCodeToCountry(u8 country_code, Platform platform, Region region,
   }
 }
 
+u16 GetSysMenuRegionID(u16 title_version)
+{
+  return title_version & 0xf;
+}
+
 Region GetSysMenuRegion(u16 title_version)
 {
-  switch (title_version & 0xf)
+  switch (GetSysMenuRegionID(title_version))
   {
   case 0:
     return Region::NTSC_J;
@@ -381,6 +398,8 @@ Region GetSysMenuRegion(u16 title_version)
     return Region::NTSC_U;
   case 2:
     return Region::PAL;
+  case 4:
+    return Region::RGB;
   case 6:
     return Region::NTSC_K;
   default:
@@ -407,8 +426,11 @@ std::string GetSysMenuVersionString(u16 title_version, bool is_vwii)
   case Region::NTSC_K:
     region_letter = 'K';
     break;
+  case Region::RGB:
+    region_letter = '0';
+    break;
   case Region::Unknown:
-    WARN_LOG_FMT(DISCIO, "Unknown region for Wii Menu version {}", title_version);
+    WARN_LOG_FMT(DISCIO, "Unknown region for Wii Menu: {}", GetSysMenuRegionID(title_version));
     break;
   }
 

@@ -348,6 +348,8 @@ static DiscIO::Region CodeRegion(char c)
     return DiscIO::Region::PAL;
   case 'K':  // Korea
     return DiscIO::Region::NTSC_K;
+  case 'Y':
+    return DiscIO::Region::RGB;
   default:
     return DiscIO::Region::Unknown;
   }
@@ -359,12 +361,15 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
       {DiscIO::Region::NTSC_J, {"JPN", "NTSC", "JP", "LJH"}},
       {DiscIO::Region::NTSC_U, {"USA", "NTSC", "US", "LU"}},
       {DiscIO::Region::PAL, {"EUR", "PAL", "EU", "LEH"}},
-      {DiscIO::Region::NTSC_K, {"KOR", "NTSC", "KR", "LKH"}}};
+      {DiscIO::Region::NTSC_K, {"KOR", "NTSC", "KR", "LKH"}},
+      {DiscIO::Region::RGB, {"USA", "NTSC", "US", "YYY"}}};
   auto entryPos = region_settings.find(SConfig::GetInstance().m_region);
   RegionSetting region_setting = entryPos->second;
 
   std::string serno;
-  std::string model = "RVL-001(" + region_setting.area + ")";
+  std::string model = console_type == IOS::HLE::IOSC::ConsoleType::RVT ?
+                          "RVT-001" : 
+                          ("RVL-001(" + region_setting.area + ")");
   CreateSystemMenuTitleDirs();
   const std::string settings_file_path(Common::GetTitleDataPath(Titles::SYSTEM_MENU) +
                                        "/" WII_SETTING);

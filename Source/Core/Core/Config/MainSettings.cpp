@@ -578,12 +578,16 @@ const Info<bool> MAIN_EMULATE_INFINITY_BASE{
 // expects to get a non-NTSC-K region even if we're emulating an NTSC-K Wii.
 DiscIO::Region ToGameCubeRegion(DiscIO::Region region)
 {
-  if (region != DiscIO::Region::NTSC_K)
-    return region;
-
   // GameCube has no NTSC-K region. No choice of replacement value is completely
   // non-arbitrary, but let's go with NTSC-J since Korean GameCubes are NTSC-J.
-  return DiscIO::Region::NTSC_J;
+  if (region == DiscIO::Region::NTSC_K)
+    return DiscIO::Region::NTSC_J;
+  // GameCube has no RGB region: use NTSC-U instead since RVAs present themselves
+  // as such.
+  if (region == DiscIO::Region::RGB)
+    return DiscIO::Region::NTSC_U;
+
+  return region;
 }
 
 const char* GetDirectoryForRegion(DiscIO::Region region, RegionDirectoryStyle style)
