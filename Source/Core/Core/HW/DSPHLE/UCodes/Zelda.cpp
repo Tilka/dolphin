@@ -1077,7 +1077,7 @@ void ZeldaAudioRenderer::ApplyReverb(bool post_rendering)
       for (u16 i = 0; i < 8; ++i)
         (*last8_samples_buffers[rpb_idx])[i] = buffer[0x50 + i];
 
-      auto ApplyFilter = [&]() {
+      auto ApplyFIRFilter = [&]() {
         // Filter the buffer using provided coefficients.
         for (u16 i = 0; i < 0x50; ++i)
         {
@@ -1091,7 +1091,7 @@ void ZeldaAudioRenderer::ApplyReverb(bool post_rendering)
 
       // LSB set -> pre-filtering.
       if (rpb.enabled & 1)
-        ApplyFilter();
+        ApplyFIRFilter();
 
       for (const auto& dest : rpb.dest)
       {
@@ -1111,7 +1111,7 @@ void ZeldaAudioRenderer::ApplyReverb(bool post_rendering)
 
       // LSB not set, bit 1 set -> post-filtering.
       if (rpb.enabled & 2)
-        ApplyFilter();
+        ApplyFIRFilter();
 
       for (u16 i = 0; i < 0x50; ++i)
         (*reverb_buffers[rpb_idx])[i] = buffer[i];
