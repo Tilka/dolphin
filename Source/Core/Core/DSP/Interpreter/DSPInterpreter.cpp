@@ -75,6 +75,24 @@ void Interpreter::Step()
   const u16 opc = state.FetchInstruction();
   ExecuteInstruction(UDSPInstruction{opc});
 
+  if (state.pc == 0x29D)
+  {
+	  switch (u32(state.dram[0x48c] << 16) | state.dram[0x48d])
+	  {
+	  case 0x0047FC60:
+          case 0x004B1D20:
+          case 0x0047B1C0:
+          case 0x004F42C0:
+          case 0x006659A0:
+          case 0x00046720:
+          case 0x00004000:
+	  case 0x00415CE0:
+		state.pc = 0x3BC;
+	  }
+  }
+  if (state.pc == 0xCE9)
+    NOTICE_LOG_FMT(DSPHLE, "LLE dolby_voice_position: 0x{:04X}", state.r.ac[0].m);
+
   const auto pc = state.pc;
   if (state.GetAnalyzer().IsLoopEnd(static_cast<u16>(pc - 1)))
     HandleLoop();

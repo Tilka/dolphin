@@ -95,6 +95,7 @@ static const std::map<u32, u32> UCODE_FLAGS = {
     // The Legend of Zelda: Four Swords Adventures.
     // Mario Kart: Double Dash.
     // Pikmin 2 GC NTSC.
+    // The Legend of Zelda: Collector's Edition.
     {0x2FCDF1EC, MAKE_DOLBY_LOUDER},
     // The Legend of Zelda: Twilight Princess / GC.
     // Donkey Kong Jungle Beat.
@@ -103,6 +104,7 @@ static const std::map<u32, u32> UCODE_FLAGS = {
     // implement this yet.
     {0x6CA33A6D, MAKE_DOLBY_LOUDER},
     // The Legend of Zelda: Twilight Princess / Wii.
+    // Link's Crossbow Training.
     {0x6C3F6F94, NO_ARAM | MAKE_DOLBY_LOUDER},
     // Super Mario Galaxy.
     // Super Mario Galaxy 2.
@@ -111,11 +113,6 @@ static const std::map<u32, u32> UCODE_FLAGS = {
     {0xB7EB9A9C, NO_ARAM | MAKE_DOLBY_LOUDER | COMBINED_CMD_0D},
     // Pikmin 2 New Play Control.
     {0xEAEB38CC, NO_ARAM | MAKE_DOLBY_LOUDER},
-
-    // TODO: Other games that use this UCode (exhaustive list):
-    // * Link's Crossbow Training
-    // * The Legend of Zelda: Collector's Edition
-    // * The Legend of Zelda: Twilight Princess / Wii (type ????, CRC ????)
 };
 
 ZeldaUCode::ZeldaUCode(DSPHLE* dsphle, u32 crc) : UCodeInterface(dsphle, crc)
@@ -973,8 +970,18 @@ void ZeldaAudioRenderer::PrepareFrame()
   m_buf_front_left.fill(0);
   m_buf_front_right.fill(0);
 
-  ApplyVolumeInPlace_1_15(&m_buf_back_left, 0x6784);
-  ApplyVolumeInPlace_1_15(&m_buf_back_right, 0x6784);
+  AddBuffersWithVolume(m_buf_unk2.data(), m_buf_back_left.data(), 0x50, 0x6784);
+  AddBuffersWithVolume(m_buf_front_left.data(), m_buf_unk2.data(), 0x50, 0x7FFF);
+  AddBuffersWithVolume(m_buf_front_right.data(), m_buf_unk2.data(), 0x50, 0xB820);
+  AddBuffersWithVolume(m_buf_unk2.data(), m_buf_back_right.data(), 0x50, 0x6784);
+  AddBuffersWithVolume(m_buf_front_left.data(), m_buf_unk2.data(), 0x50, 0x47E0);
+  AddBuffersWithVolume(m_buf_front_right.data(), m_buf_unk2.data(), 0x50, 0x8001);
+
+  m_buf_back_left.fill(0);
+  m_buf_back_right.fill(0);
+  m_buf_unk1.fill(0);
+  // TODO: 0xA00
+  m_buf_unk0.fill(0);
 
 // TODO: Back left and back right should have a filter applied to them,
 // then get mixed into front left and front right. In practice, TWW never
@@ -1173,6 +1180,20 @@ void ZeldaAudioRenderer::AddVoice(u16 voice_id)
   if (!vpb.enabled || vpb.done)
     return;
 
+  switch (vpb.GetBaseAddress())
+  {
+	  case 0x0047FC60:
+	  case 0x004B1D20:
+	  case 0x0047B1C0:
+	  case 0x004F42C0:
+	  case 0x006659A0:
+	  case 0x00046720:
+	  case 0x00004000:
+	  case 0x00415CE0:
+		  return;
+  }
+  NOTICE_LOG_FMT(DSPHLE, "base address: 0x{:08X}", vpb.GetBaseAddress());
+
   MixingBuffer input_samples;
   LoadInputSamples(&input_samples, &vpb);
 
@@ -1189,18 +1210,22 @@ void ZeldaAudioRenderer::AddVoice(u16 voice_id)
         vpb.done = true;
     }
 
+    NOTICE_LOG_FMT(DSPHLE, "0x{:04X}", vpb.dolby_voice_position);
+
     // Each of these volumes is in 1.15 fixed format.
     s16 right_volume = m_sine_table[vpb.GetDolbyVoiceX()];
     s16 back_volume = m_sine_table[vpb.GetDolbyVoiceY()];
     s16 left_volume = m_sine_table[vpb.GetDolbyVoiceX() ^ 0x7F];
     s16 front_volume = m_sine_table[vpb.GetDolbyVoiceY() ^ 0x7F];
 
+    //NOTICE_LOG_FMT(DSPHLE, "0x{:04X} 0x{:04X} 0x{:04X} 0x{:04X}", right_volume, back_volume, left_volume, front_volume);
+
     // Compute volume for each quadrant.
     u16 shift_factor = (m_flags & MAKE_DOLBY_LOUDER) ? 15 : 16;
     s16 quadrant_volumes[4] = {
         (s16)((left_volume * front_volume) >> shift_factor),
-        (s16)((left_volume * back_volume) >> shift_factor),
-        (s16)((right_volume * front_volume) >> shift_factor),
+        (s16)(((u16)left_volume * back_volume) >> shift_factor),
+        (s16)(((u16)right_volume * front_volume) >> shift_factor),
         (s16)((right_volume * back_volume) >> shift_factor),
     };
 
@@ -1218,7 +1243,7 @@ void ZeldaAudioRenderer::AddVoice(u16 voice_id)
     // Compute reverb volume and ramp deltas.
     s16 reverb_volumes[4], reverb_volume_deltas[4];
     s16 reverb_volume_factor =
-        (vpb.dolby_volume_current * vpb.dolby_reverb_factor) >> (shift_factor - 1);
+        (vpb.dolby_volume_current * vpb.dolby_reverb_factor) >> shift_factor;
     for (size_t i = 0; i < 4; ++i)
     {
       reverb_volumes[i] = (quadrant_volumes[i] * reverb_volume_factor) >> shift_factor;
@@ -1244,7 +1269,7 @@ void ZeldaAudioRenderer::AddVoice(u16 voice_id)
     for (const auto& buffer : buffers)
     {
       AddBuffersWithVolumeRamp(buffer.buffer, input_samples, buffer.volume << 16,
-                               (buffer.volume_delta << 16) / (s32)buffer.buffer->size());
+                               buffer.volume_delta << 11);
     }
 
     vpb.dolby_volume_current = vpb.dolby_volume_target;
@@ -1330,6 +1355,8 @@ void ZeldaAudioRenderer::FinalizeFrame()
 
   // TODO: Some more Dolby mixing.
 
+  AddBuffersWithVolume(m_buf_front_left_reverb.data() + 0x28, m_buf_back_right_reverb.data(), 0x28, 0xB820);
+  AddBuffersWithVolume(m_buf_front_right_reverb.data() + 0x28, m_buf_back_right_reverb.data(), 0x28, 0x7FFF);
   ApplyReverb(true);
 
   m_prepared = false;
