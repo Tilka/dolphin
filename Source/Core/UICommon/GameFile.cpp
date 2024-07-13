@@ -192,8 +192,8 @@ bool GameFile::IsValid() const
   if (!m_valid)
     return false;
 
-  if (m_platform == DiscIO::Platform::WiiWAD && !IOS::ES::IsChannel(m_title_id))
-    return false;
+  //if (m_platform == DiscIO::Platform::WiiWAD && !IOS::ES::IsChannel(m_title_id))
+  //  return false;
 
   return true;
 }
