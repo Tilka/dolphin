@@ -38,6 +38,7 @@
 #include "VideoCommon/AbstractStagingTexture.h"
 #include "VideoCommon/Assets/CustomTextureData.h"
 #include "VideoCommon/BPMemory.h"
+#include "VideoCommon/CommandProcessor.h"
 #include "VideoCommon/FramebufferManager.h"
 #include "VideoCommon/GraphicsModSystem/Runtime/FBInfo.h"
 #include "VideoCommon/GraphicsModSystem/Runtime/GraphicsModActionData.h"
@@ -2289,8 +2290,21 @@ void TextureCacheBase::CopyRenderTargetToTexture(
 
   const u32 bytes_per_row = num_blocks_x * bytes_per_block;
   const u32 covered_range = num_blocks_y * dstStride;
+  const u32 copy_base = dstAddr;
+  const u32 copy_end = dstAddr + covered_range;
 
   auto& system = Core::System::GetInstance();
+  auto& fifo = system.GetCommandProcessor().GetFifo();
+  const u32 fifo_base = fifo.CPBase.load(std::memory_order_relaxed);
+  const u32 fifo_end = fifo.CPEnd.load(std::memory_order_relaxed);
+  if ((copy_base >= fifo_base && copy_base < fifo_end) ||
+      (copy_end > fifo_base && copy_end <= fifo_end))
+  {
+    // Resident Evil PAL, SSX Tricky
+    ERROR_LOG_FMT(VIDEO, "{} copy to [{:08x}, {:08x}) overlaps with GP fifo at [{:08x}, {:08x})",
+      is_xfb_copy ? "XFB" : "EFB", copy_base, copy_end, fifo_base, fifo_end);
+  }
+
   auto& memory = system.GetMemory();
   u8* dst = memory.GetPointerForRange(dstAddr, covered_range);
   if (dst == nullptr)
