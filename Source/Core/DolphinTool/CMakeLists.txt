@@ -2,6 +2,8 @@ add_executable(dolphin-tool
   ToolHeadlessPlatform.cpp
   ExtractCommand.cpp
   ExtractCommand.h
+  FifologCommand.cpp
+  FifologCommand.h
   ConvertCommand.cpp
   ConvertCommand.h
   VerifyCommand.cpp
