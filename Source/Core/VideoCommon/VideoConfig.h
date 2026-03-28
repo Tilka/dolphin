@@ -290,6 +290,10 @@ struct VideoConfig final
   bool bDisableCopyToVRAM = false;
   bool bDeferEFBCopies = false;
   bool bImmediateXFB = false;
+  bool ImmediateXFB() const
+  {
+     return !bpmem.genMode.multisampling && bImmediateXFB;
+  }
   bool bSkipPresentingDuplicateXFBs = false;
   bool bCopyEFBScaled = false;
   int iSafeTextureCache_ColorSamples = 0;

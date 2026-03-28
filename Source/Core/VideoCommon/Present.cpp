@@ -938,7 +938,7 @@ TimePoint Presenter::GetUpdatedPresentationTime(TimePoint intended_presentation_
 
     // When SmoothEarlyPresentation is off and ImmediateXFB or RushFramePresentation are on,
     //  present as soon as possible as the goal is to achieve low input latency.
-    if (g_ActiveConfig.bImmediateXFB || Config::Get(Config::MAIN_RUSH_FRAME_PRESENTATION))
+    if (g_ActiveConfig.ImmediateXFB() || Config::Get(Config::MAIN_RUSH_FRAME_PRESENTATION))
       return now;
 
     return intended_presentation_time;
