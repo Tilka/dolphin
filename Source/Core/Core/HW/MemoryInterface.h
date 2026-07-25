@@ -114,6 +114,7 @@ private:
     MIIRQFlag irq_flag;
     u16 unknown1 = 0;
     MIProtAddr prot_addr;
+    u16 refresh = 0;
     std::array<MITimer, 10> timers;
     u16 unknown2 = 0;
   };

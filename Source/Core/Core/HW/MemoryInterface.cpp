@@ -30,6 +30,7 @@ enum
   MI_UNKNOWN1 = 0x020,
   MI_PROT_ADDR_LO = 0x022,
   MI_PROT_ADDR_HI = 0x024,
+  MI_MEM_REFRESH = 0x026,
   MI_TIMER0_HI = 0x032,
   MI_TIMER0_LO = 0x034,
   MI_TIMER1_HI = 0x036,
@@ -103,6 +104,9 @@ void MemoryInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                  MMIO::DirectWrite<u16>(&m_mi_mem.prot_addr.hi));
   mmio->Register(base | MI_PROT_ADDR_HI, MMIO::DirectRead<u16>(&m_mi_mem.prot_addr.lo),
                  MMIO::DirectWrite<u16>(&m_mi_mem.prot_addr.lo));
+
+  mmio->Register(base | MI_MEM_REFRESH, MMIO::DirectRead<u16>(&m_mi_mem.refresh, 0xFF),
+                 MMIO::DirectWrite<u16>(&m_mi_mem.refresh));
 
   for (u32 i = 0; i < m_mi_mem.timers.size(); ++i)
   {
